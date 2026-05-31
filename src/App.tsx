@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
+import LeadIntelligence from './pages/LeadIntelligence'
 
 function App() {
   const [email, setEmail] = useState('')
@@ -49,17 +50,13 @@ function App() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-cream font-body text-navy flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white border border-mint rounded-lg shadow-sm p-8">
-        {userEmail ? (
-          <div className="text-center space-y-4">
-            <h1 className="font-heading text-2xl text-navy">
-              Logged in as {userEmail}
-            </h1>
-            <p className="font-body text-navy">
-              Foundation ready. Phase 0 complete.
-            </p>
+  if (userEmail) {
+    return (
+      <div className="min-h-screen bg-cream font-body text-navy">
+        <header className="bg-white border-b border-mint px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-heading text-2xl text-navy">AgentPulse</h1>
+          <div className="flex items-center gap-4">
+            <span className="font-body text-sm text-slate">{userEmail}</span>
             <button
               type="button"
               onClick={handleSignOut}
@@ -67,67 +64,74 @@ function App() {
             >
               Sign Out
             </button>
-            {error && (
-              <p className="font-body text-coral text-sm" role="alert">
-                {error}
-              </p>
-            )}
           </div>
-        ) : (
-          <>
-            <h1 className="font-heading text-3xl text-navy text-center mb-6">
-              AgentPulse
-            </h1>
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="font-label text-sm text-navy block mb-1"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="font-body w-full border border-mint rounded px-3 py-2 text-navy focus:outline-none focus:ring-2 focus:ring-teal"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="password"
-                  className="font-label text-sm text-navy block mb-1"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="font-body w-full border border-mint rounded px-3 py-2 text-navy focus:outline-none focus:ring-2 focus:ring-teal"
-                />
-              </div>
-              {error && (
-                <p className="font-body text-coral text-sm" role="alert">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="font-body w-full bg-teal text-white rounded py-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
-              >
-                {submitting ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-          </>
+        </header>
+        {error && (
+          <p className="font-body text-coral text-sm px-4 pt-3" role="alert">
+            {error}
+          </p>
         )}
+        <main className="p-4 max-w-[1400px] mx-auto">
+          <LeadIntelligence />
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-cream font-body text-navy flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white border border-mint rounded-lg shadow-sm p-8">
+        <h1 className="font-heading text-3xl text-navy text-center mb-6">
+          AgentPulse
+        </h1>
+        <form onSubmit={handleSignIn} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="font-label text-sm text-navy block mb-1"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="font-body w-full border border-mint rounded px-3 py-2 text-navy focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="font-label text-sm text-navy block mb-1"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="font-body w-full border border-mint rounded px-3 py-2 text-navy focus:outline-none focus:ring-2 focus:ring-teal"
+            />
+          </div>
+          {error && (
+            <p className="font-body text-coral text-sm" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="font-body w-full bg-teal text-white rounded py-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
+          >
+            {submitting ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
       </div>
     </div>
   )

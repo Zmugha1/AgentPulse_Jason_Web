@@ -9,6 +9,8 @@ export default {
         mint: '#C8E8E5',
         coral: '#F05F57',
         cream: '#FEFAF5',
+        gold: '#D4A017',
+        slate: '#5C6B7A',
       },
       fontFamily: {
         heading: ['Georgia', 'serif'],
