@@ -41,9 +41,30 @@ Historic meeting fields (`has_home_to_sell`, `buying_or_renting`, `lender_status
 
 **Commits:** `7d6a8ea` (loader script + deps), session log follow-up.
 
-### Next session — Phase 2
+## 2026-05-31 — Phase 2 complete
 
-Data access layer + scoring port.
+Data access layer added (no UI changes; login page still Phase 0).
+
+**Services:**
+
+- `leadsService.ts` — CRUD-style Supabase queries for leads
+- `scoringService.ts` — J-2c port from desktop `leadScoring.ts` (`scoreLead`, `rescoreAllLeads`)
+- `morningBriefService.ts` — worklist sort: score DESC, `original_lead_date` ASC (desktop J-2c-fix)
+- `marketIntelService.ts` — J-2b analytics port from desktop `leadAnalytics.ts`
+- `types.ts` — shared Lead, Interaction, StageNote, Source, scoring and market intel types
+
+**Schema:** migration `20260530030000_add_lead_price_columns.sql` adds nullable `budget_max`, `listing_price` on `leads` (null on curated 867; ready for API/manual adds).
+
+**Rescore (867 leads):**
+
+- Status: cold 814, warm 53, hot 0
+- Scores: 0 (9), 1 (20), 2 (170), 3 (453), 4 (162), 5 (53)
+
+**Commit:** `0fac614` — feat: phase 2 data access layer and scoring port
+
+### Next session — Phase 3
+
+Page porting starts with Lead Intelligence.
 
 ### Open items
 
