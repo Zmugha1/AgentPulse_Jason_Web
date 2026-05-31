@@ -62,9 +62,26 @@ Data access layer added (no UI changes; login page still Phase 0).
 
 **Commit:** `0fac614` — feat: phase 2 data access layer and scoring port
 
-### Next session — Phase 3
+## 2026-05-31 — Phase 3 Part 1 complete (Lead Intelligence)
 
-Page porting starts with Lead Intelligence.
+First visible UI on https://agentpulseweb.netlify.app. Login unchanged; after sign in, Lead Intelligence table replaces Phase 0 message.
+
+**Built:**
+
+- `LeadTable.tsx` — 867-row table, brand colors (hot=coral, warm=gold, cold=slate), sort helper `sortLeadsByScoreThenDate` (score DESC, `original_lead_date` ASC, matches Morning Brief)
+- `LeadFilters.tsx` — status, pipeline stage, source, name search (client-side)
+- `LeadIntelligence.tsx` — `getAllLeads()`, loading/empty states, "Showing X of 867 leads"
+- `App.tsx` — header with AgentPulse, email, Sign Out
+
+**RLS fix:** migration `20260531040000_grant_authenticated_table_privileges.sql` grants `SELECT`/`INSERT`/`UPDATE` on all four tables to `authenticated` (policies existed but table grants were missing; caused `permission denied for table leads` in browser).
+
+**Verified:** localhost and live (desktop + phone). 867 leads, filters (warm 53, zillow 834, contacted 371), Jason's 8 leads at top of warm band (score 5, date ASC within band). Wide table on phone expected until Phase 4.
+
+**Commit:** `46c55c5` — feat: phase 3 part 1 lead intelligence page port
+
+### Next session — Phase 3 Part 2
+
+Port Morning Brief. Then Market Intel, Client Intel, Business Goals. Phase 4: mobile responsive polish.
 
 ### Open items
 
