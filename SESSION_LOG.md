@@ -103,9 +103,26 @@ Default Morning Brief shows leads from the **last 12 months** only (`getMorningB
 
 **Commit:** `ddcbb10` — feat: morning brief actionable-leads filter, default last 12 months
 
-### Next session — Phase 3 Part 3
+## 2026-06-01 — Phase 3 Part 3 complete (Market Intel)
 
-Port Market Intel. Then Client Intel, Business Goals. Phase 4: mobile responsive polish.
+Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morning Brief default, Lead Intelligence, Market Intel).
+
+**Built:**
+
+- `MarketIntel.tsx` — operational pool framing (870 leads), hero + four stat cards, source pie, horizontal stage bars, recency bars, price-band honest empty-state card (no misleading 0% chart)
+- `marketIntelService.ts` — `getPoolHeadlineMetrics()`, `getPricedLeadStats()`, `realtor_com_connections_plus` in source breakdown
+- `App.tsx` — third tab
+- `recharts` dependency
+
+**Data:** 870-lead pool (867 curated + 3 Realtor Connections Plus inserts). Hero subtitle computed live (12-month unworked, warm count, closed).
+
+**Price bands:** Chart removed after local review; empty-state copy explains 3 priced leads, all new, until enough worked leads for conversion patterns.
+
+**Commit:** (see git log) — feat: phase 3 part 3 market intel page port
+
+### Next session
+
+Client Intel, Business Goals. Phase 4: mobile responsive polish.
 
 ### Open items
 

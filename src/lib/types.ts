@@ -87,6 +87,14 @@ export interface SourceBreakdown {
   zillow: number
   realtor_full: number
   realtor_contacts: number
+  realtor_connections_plus: number
+}
+
+export interface PoolHeadlineMetrics {
+  total: number
+  neverWorked12Months: number
+  warmCount: number
+  closed: number
 }
 
 export interface StageDistributionRow {

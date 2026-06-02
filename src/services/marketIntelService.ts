@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../lib/getSupabaseClient'
 import type {
   MarketIntelSummary,
+  PoolHeadlineMetrics,
   PriceBandRow,
   RecencyBucketRow,
   SourceBreakdown,
@@ -172,7 +173,7 @@ export async function getPriceBands(): Promise<PriceBandRow[]> {
 }
 
 /**
- * Lead counts by import source (curated archive).
+ * Lead counts by import source (operational pool).
  */
 export async function getSourceBreakdown(): Promise<SourceBreakdown> {
   const rows = await fetchAnalyticsRows()
@@ -180,6 +181,7 @@ export async function getSourceBreakdown(): Promise<SourceBreakdown> {
     zillow: 0,
     realtor_full: 0,
     realtor_contacts: 0,
+    realtor_connections_plus: 0,
   }
 
   for (const row of rows) {
@@ -187,9 +189,77 @@ export async function getSourceBreakdown(): Promise<SourceBreakdown> {
     if (source === 'zillow') breakdown.zillow++
     else if (source === 'realtor_com_full') breakdown.realtor_full++
     else if (source === 'realtor_com_contacts') breakdown.realtor_contacts++
+    else if (source === 'realtor_com_connections_plus') {
+      breakdown.realtor_connections_plus++
+    }
   }
 
   return breakdown
+}
+
+/**
+ * Hero subtitle metrics: recent unworked, warm score band, closed count.
+ */
+export async function getPoolHeadlineMetrics(
+  now = new Date(),
+): Promise<PoolHeadlineMetrics> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('leads')
+    .select('pipeline_stage, status, original_lead_date')
+
+  if (error) {
+    console.error('[marketIntelService] getPoolHeadlineMetrics:', error.message)
+    throw new Error(`getPoolHeadlineMetrics: ${error.message}`)
+  }
+
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - 12)
+
+  let neverWorked12Months = 0
+  let warmCount = 0
+  let closed = 0
+
+  for (const row of data ?? []) {
+    const stage = normalizeStage(row.pipeline_stage)
+    if (stage === 'closed') closed++
+    if (row.status === 'warm') warmCount++
+
+    if (stage !== 'new' || !row.original_lead_date) continue
+    const leadDate = new Date(row.original_lead_date)
+    if (!Number.isNaN(leadDate.getTime()) && leadDate >= cutoff) {
+      neverWorked12Months++
+    }
+  }
+
+  return {
+    total: (data ?? []).length,
+    neverWorked12Months,
+    warmCount,
+    closed,
+  }
+}
+
+export interface PricedLeadStats {
+  total: number
+  newCount: number
+}
+
+/**
+ * Leads with budget_max or listing_price (for price-band empty-state copy).
+ */
+export async function getPricedLeadStats(): Promise<PricedLeadStats> {
+  const rows = await fetchAnalyticsRows()
+  let total = 0
+  let newCount = 0
+
+  for (const row of rows) {
+    if (priceFor(row) === null) continue
+    total++
+    if (normalizeStage(row.pipeline_stage) === 'new') newCount++
+  }
+
+  return { total, newCount }
 }
 
 /**

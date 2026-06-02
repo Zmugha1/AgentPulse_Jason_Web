@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
 import LeadIntelligence from './pages/LeadIntelligence'
+import MarketIntel from './pages/MarketIntel'
 import MorningBrief from './pages/MorningBrief'
 
-type AppTab = 'brief' | 'intelligence'
+type AppTab = 'brief' | 'intelligence' | 'market'
 
 function App() {
   const [email, setEmail] = useState('')
@@ -94,6 +95,17 @@ function App() {
           >
             Lead Intelligence
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('market')}
+            className={`font-body py-3 border-b-2 transition-colors ${
+              activeTab === 'market'
+                ? 'border-teal text-navy font-semibold'
+                : 'border-transparent text-slate hover:text-navy'
+            }`}
+          >
+            Market Intel
+          </button>
         </nav>
 
         {error && (
@@ -103,7 +115,9 @@ function App() {
         )}
 
         <main className="p-4 max-w-[1400px] mx-auto">
-          {activeTab === 'brief' ? <MorningBrief /> : <LeadIntelligence />}
+          {activeTab === 'brief' && <MorningBrief />}
+          {activeTab === 'intelligence' && <LeadIntelligence />}
+          {activeTab === 'market' && <MarketIntel />}
         </main>
       </div>
     )
