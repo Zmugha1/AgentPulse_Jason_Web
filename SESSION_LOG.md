@@ -79,9 +79,25 @@ First visible UI on https://agentpulseweb.netlify.app. Login unchanged; after si
 
 **Commit:** `46c55c5` — feat: phase 3 part 1 lead intelligence page port
 
-### Next session — Phase 3 Part 2
+## 2026-05-31 — Phase 3 Part 2 complete (Morning Brief)
 
-Port Morning Brief. Then Market Intel, Client Intel, Business Goals. Phase 4: mobile responsive polish.
+Morning Brief live at https://agentpulseweb.netlify.app with tab switcher (default tab).
+
+**Built:**
+
+- `interactionsService.ts` — `logInteraction()`, `updateLastContactAt()`; not_interested sets `pipeline_stage` to dead
+- `ActionButtons.tsx` — Called, Voicemail, No Answer, Emailed, Not Interested
+- `LeadCard.tsx` — score, brief reason, status border, fade-out on action
+- `MorningBrief.tsx` — greeting by time, top 20 via `getMorningBriefLeads(20)`
+- `App.tsx` — tabs: Morning Brief (default) and Lead Intelligence
+
+**Verified locally:** top 20 leads, actions write to `interactions`, card removes after click, tab switcher works.
+
+**Commit:** `2356aca` — feat: phase 3 part 2 morning brief page port
+
+### Next session — Phase 3 Part 3
+
+Port Market Intel. Then Client Intel, Business Goals. Phase 4: mobile responsive polish.
 
 ### Open items
 
