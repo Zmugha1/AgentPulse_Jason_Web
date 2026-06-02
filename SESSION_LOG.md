@@ -118,7 +118,7 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Price bands:** Chart removed after local review; empty-state copy explains 3 priced leads, all new, until enough worked leads for conversion patterns.
 
-**Commit:** (see git log) — feat: phase 3 part 3 market intel page port
+**Commit:** `f8e8aee` — feat: phase 3 part 3 market intel page port
 
 ### Next session
 
