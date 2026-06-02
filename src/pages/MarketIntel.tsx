@@ -76,6 +76,62 @@ function IntelCard({
   )
 }
 
+const WEBSITE_ACTIVITY_PLACEHOLDERS = [
+  {
+    label: 'Visitors (last 7 days)',
+    sublabel: 'Connected via GA4',
+  },
+  {
+    label: 'Top Traffic Source',
+    sublabel: 'Organic, direct, referral',
+  },
+  {
+    label: 'Top Pages',
+    sublabel: 'Most-viewed content',
+  },
+  {
+    label: 'Lead Conversion Rate',
+    sublabel: 'Visitor → lead capture',
+  },
+] as const
+
+function WebsiteActivityPlaceholder() {
+  return (
+    <IntelCard
+      title="Website Activity — thesuepattigroup.ai"
+      subtitle="Live GA4 integration ships in Phase 6"
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {WEBSITE_ACTIVITY_PLACEHOLDERS.map((stat) => (
+          <div
+            key={stat.label}
+            className="relative bg-cream border border-mint rounded-lg p-4 opacity-90"
+          >
+            <span className="absolute top-2 right-2 font-label text-[9px] uppercase tracking-wide text-teal bg-mint/60 border border-mint rounded px-1.5 py-0.5">
+              Coming soon
+            </span>
+            <div className="font-label text-[10px] uppercase text-slate pr-16">
+              {stat.label}
+            </div>
+            <div className="font-heading text-2xl font-bold text-slate mt-1">
+              —
+            </div>
+            <div className="font-body text-xs text-slate mt-1">{stat.sublabel}</div>
+          </div>
+        ))}
+      </div>
+      <p className="font-body text-xs text-slate leading-relaxed mt-4">
+        Phase 6 connects Google Analytics 4 (property G-WBWHJYPG12) and the
+        Netlify Forms feed from thesuepattigroup.ai. Visitor traffic, top
+        traffic sources, top-performing pages, and visitor-to-lead conversion
+        rate will display here. Combined with the lead intelligence above, this
+        becomes your single view of the funnel: who visits, who converts,
+        who&apos;s in your pipeline.
+      </p>
+    </IntelCard>
+  )
+}
+
 export default function MarketIntel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -284,6 +340,8 @@ export default function MarketIntel() {
           </ResponsiveContainer>
         </div>
       </IntelCard>
+
+      <WebsiteActivityPlaceholder />
 
       <IntelCard title="Pipeline stage distribution">
         <div className="h-80">
