@@ -116,9 +116,11 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Data:** 870-lead pool (867 curated + 3 Realtor Connections Plus inserts). Hero subtitle computed live (12-month unworked, warm count, closed).
 
-**Price bands:** Chart removed after local review; empty-state copy explains 3 priced leads, all new, until enough worked leads for conversion patterns.
+**Price bands:** Chart removed after local review; empty-state copy explains 3 priced leads, all new, until enough worked leads for conversion patterns. Kept empty-state card (no 0% advance-rate bars).
 
-**Commit:** `f8e8aee` — feat: phase 3 part 3 market intel page port
+**Verified:** localhost Step 6 (hero, four cards, source pie with Connections Plus, stage/recency charts, price-band card, footer disclaimer, tab switcher). Live bundle `index-DLB9TtJa.js` on Netlify includes Market Intel strings post-deploy.
+
+**Commits:** `f8e8aee` — feat: phase 3 part 3 market intel page port; `6af1ec0` — docs: session log commit hash
 
 ### Next session
 
