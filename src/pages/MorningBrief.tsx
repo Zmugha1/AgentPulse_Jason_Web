@@ -23,19 +23,23 @@ export default function MorningBrief() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [includeOlder, setIncludeOlder] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const rows = await getMorningBriefLeads(20)
+      const rows = await getMorningBriefLeads(
+        20,
+        includeOlder ? null : 12,
+      )
       setLeads(rows)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load leads')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [includeOlder])
 
   useEffect(() => {
     load()
@@ -44,6 +48,10 @@ export default function MorningBrief() {
   function handleActionComplete(leadId: string) {
     setLeads((current) => current.filter((lead) => lead.id !== leadId))
   }
+
+  const counterText = includeOlder
+    ? `Showing ${leads.length} leads from all history`
+    : `Showing ${leads.length} leads from the last 12 months`
 
   if (loading) {
     return (
@@ -71,17 +79,40 @@ export default function MorningBrief() {
         <p className="font-body text-navy mt-3">
           Today&apos;s top leads worth your time
         </p>
-        <p className="font-label text-xs text-slate mt-2">
-          Showing {leads.length} leads to work today
-        </p>
+        <p className="font-label text-xs text-slate mt-2">{counterText}</p>
       </header>
+
+      <label className="flex items-center gap-2 bg-white border border-mint rounded-lg px-4 py-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={includeOlder}
+          onChange={(e) => setIncludeOlder(e.target.checked)}
+          className="h-4 w-4 accent-teal"
+        />
+        <span className="font-body text-sm text-navy">
+          Include older leads (over 12 months)
+        </span>
+      </label>
 
       {leads.length === 0 ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">
-          <p className="font-body text-navy">No leads in your brief right now.</p>
-          <p className="font-body text-sm text-slate mt-2">
-            Check back later or review Lead Intelligence for the full list.
-          </p>
+          {includeOlder ? (
+            <>
+              <p className="font-body text-navy">No leads in your brief right now.</p>
+              <p className="font-body text-sm text-slate mt-2">
+                Check back later or review Lead Intelligence for the full list.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-body text-navy">
+                No leads from the last 12 months match your scoring profile.
+              </p>
+              <p className="font-body text-sm text-slate mt-2">
+                Toggle on &apos;Include older leads&apos; to see all history.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
