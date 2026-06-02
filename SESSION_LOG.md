@@ -95,6 +95,14 @@ Morning Brief live at https://agentpulseweb.netlify.app with tab switcher (defau
 
 **Commit:** `2356aca` — feat: phase 3 part 2 morning brief page port
 
+## 2026-05-31 — Hotfix: Morning Brief actionable-leads filter (Jason 5/26 request)
+
+Default Morning Brief shows leads from the **last 12 months** only (`getMorningBriefLeads(20, 12)`). Toggle **Include older leads (over 12 months)** calls `getMorningBriefLeads(20, null)` for full history. Sort unchanged: score DESC, `original_lead_date` ASC.
+
+**Verified:** 8 leads in 12-month window; Sarah Schmidt at top. All-history mode still returns 20 (Luke steidl era). Fulfills Jason's #1 request: actionable leads default to recent window.
+
+**Commit:** `ddcbb10` — feat: morning brief actionable-leads filter, default last 12 months
+
 ### Next session — Phase 3 Part 3
 
 Port Market Intel. Then Client Intel, Business Goals. Phase 4: mobile responsive polish.
