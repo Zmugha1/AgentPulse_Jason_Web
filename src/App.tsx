@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
 import LeadIntelligence from './pages/LeadIntelligence'
+import MorningBrief from './pages/MorningBrief'
+
+type AppTab = 'brief' | 'intelligence'
 
 function App() {
   const [email, setEmail] = useState('')
@@ -9,6 +12,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState<AppTab>('brief')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -66,13 +70,40 @@ function App() {
             </button>
           </div>
         </header>
+
+        <nav className="bg-white border-b border-mint px-4 flex gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('brief')}
+            className={`font-body py-3 border-b-2 transition-colors ${
+              activeTab === 'brief'
+                ? 'border-teal text-navy font-semibold'
+                : 'border-transparent text-slate hover:text-navy'
+            }`}
+          >
+            Morning Brief
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('intelligence')}
+            className={`font-body py-3 border-b-2 transition-colors ${
+              activeTab === 'intelligence'
+                ? 'border-teal text-navy font-semibold'
+                : 'border-transparent text-slate hover:text-navy'
+            }`}
+          >
+            Lead Intelligence
+          </button>
+        </nav>
+
         {error && (
           <p className="font-body text-coral text-sm px-4 pt-3" role="alert">
             {error}
           </p>
         )}
+
         <main className="p-4 max-w-[1400px] mx-auto">
-          <LeadIntelligence />
+          {activeTab === 'brief' ? <MorningBrief /> : <LeadIntelligence />}
         </main>
       </div>
     )
