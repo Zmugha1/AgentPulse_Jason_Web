@@ -122,9 +122,19 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Commits:** `f8e8aee` — feat: phase 3 part 3 market intel page port; `6af1ec0` — docs: session log commit hash
 
+## 2026-06-06 — Phase 6 Part 1 in progress (website lead webhook)
+
+**Webhook:** `netlify/functions/website-lead.ts` at `/api/website-lead` — three mappers for `chatbot-lead`, `seller-valuation`, `newsletter-signup`.
+
+**Newsletter:** `pipeline_stage = 'new'` (intent via `source = website_newsletter`).
+
+**Chatbot fields dropped Part 1:** `area`, `beds`, `pre_approved`, `timeline` not written to `leads` yet. **Phase 5 (next session):** add `purpose` column to `leads` schema to capture buyer goal signals (Jason meeting ask: "what was their goal").
+
+**Still manual after deploy:** Configure three Netlify Forms webhooks on thesuepattigroup.ai site (URL + `x-webhook-secret` header).
+
 ### Next session
 
-Client Intel, Business Goals. Phase 4: mobile responsive polish.
+Phase 6 Part 1 finish (tests, deploy, live webhook curl). Phase 5: `purpose` field + chatbot mapper update. Client Intel, Business Goals. Phase 4: mobile responsive polish.
 
 ### Open items
 

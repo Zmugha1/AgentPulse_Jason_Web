@@ -1,6 +1,7 @@
 # Local env (never commit secrets)
 .env.local
 .env*.local
+phase6_env_setup_checklist.txt
 
 # Supabase CLI local state
 supabase/.temp

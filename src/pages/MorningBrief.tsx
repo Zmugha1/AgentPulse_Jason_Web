@@ -3,11 +3,18 @@ import LeadCard from '../components/LeadCard'
 import type { Lead } from '../lib/types'
 import { getMorningBriefLeads } from '../services/morningBriefService'
 
-function getGreeting(): string {
+const AGENT_DISPLAY_NAME = 'Jason'
+
+/** Morning 5am–12pm, afternoon 12pm–5pm, evening 5pm–5am. */
+function getTimeOfDayGreeting(): string {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
+  if (hour >= 5 && hour < 12) return 'Good morning'
+  if (hour >= 12 && hour < 17) return 'Good afternoon'
   return 'Good evening'
+}
+
+function getPersonalizedGreeting(): string {
+  return `${getTimeOfDayGreeting()}, ${AGENT_DISPLAY_NAME}`
 }
 
 function formatToday(): string {
@@ -74,7 +81,9 @@ export default function MorningBrief() {
   return (
     <div className="space-y-5 max-w-3xl">
       <header className="bg-white border border-mint rounded-lg p-6">
-        <h2 className="font-heading text-2xl text-navy">{getGreeting()}</h2>
+        <h2 className="font-heading text-2xl text-navy">
+          {getPersonalizedGreeting()}
+        </h2>
         <p className="font-body text-sm text-slate mt-1">{formatToday()}</p>
         <p className="font-body text-navy mt-3">
           Today&apos;s top leads worth your time
