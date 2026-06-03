@@ -122,19 +122,27 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Commits:** `f8e8aee` — feat: phase 3 part 3 market intel page port; `6af1ec0` — docs: session log commit hash
 
-## 2026-06-06 — Phase 6 Part 1 in progress (website lead webhook)
+## 2026-06-06 — Phase 6 Part 1 complete (website lead webhook)
 
-**Webhook:** `netlify/functions/website-lead.ts` at `/api/website-lead` — three mappers for `chatbot-lead`, `seller-valuation`, `newsletter-signup`.
+**Webhook:** `netlify/functions/website-lead.ts` at `https://agentpulseweb.netlify.app/api/website-lead` — mappers for `chatbot-lead`, `seller-valuation`, `newsletter-signup`. Auth via `x-webhook-secret` (env on agentpulseweb + thesuepattigroup).
 
-**Newsletter:** `pipeline_stage = 'new'` (intent via `source = website_newsletter`).
+**Morning Brief:** Time-of-day greeting + hardcoded "Jason" (`MorningBrief.tsx`).
 
-**Chatbot fields dropped Part 1:** `area`, `beds`, `pre_approved`, `timeline` not written to `leads` yet. **Phase 5 (next session):** add `purpose` column to `leads` schema to capture buyer goal signals (Jason meeting ask: "what was their goal").
+**Newsletter:** `pipeline_stage = 'new'`; intent via `source = website_newsletter`.
 
-**Still manual after deploy:** Configure three Netlify Forms webhooks on thesuepattigroup.ai site (URL + `x-webhook-secret` header).
+**Chatbot fields dropped Part 1:** `area`, `beds`, `pre_approved`, `timeline` not written. **Phase 5 (next):** add `purpose` column (Jason: "what was their goal").
+
+**Verified:** Local handler tests (Step 6); live curl all three forms (Step 9); Morning Brief "Good evening, Jason" live; 870 leads, no test rows after cleanup.
+
+**Docs:** `docs/PHASE_6_PART_1_WEBHOOK_CONFIG.md` — manual webhook setup for thesuepattigroup Netlify dashboard.
+
+**Still manual:** Wire three outgoing webhooks on thesuepattigroup.ai per doc; then end-to-end real form submission test.
+
+**Commit:** `4cdd50c` — feat: phase 6 part 1, website lead webhook + morning brief greeting
 
 ### Next session
 
-Phase 6 Part 1 finish (tests, deploy, live webhook curl). Phase 5: `purpose` field + chatbot mapper update. Client Intel, Business Goals. Phase 4: mobile responsive polish.
+Configure website webhooks (Zubia, ~15 min). Phase 5: `purpose` field + chatbot mapper. Phase 6 Part 2: email Jason on submit, GA4. Client Intel, Business Goals. Phase 4: mobile polish.
 
 ### Open items
 
