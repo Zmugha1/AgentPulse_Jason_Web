@@ -1,9 +1,13 @@
+import { createHash } from 'crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions'
+import jwt from 'jsonwebtoken'
 import type { Lead, LeadStatus } from '../../src/lib/types'
 import { scoreLead } from '../../src/services/scoringService'
 
-const WEBHOOK_HEADER = 'x-webhook-secret'
+const JWS_HEADER = 'x-webhook-signature'
+const JWS_ISSUER = 'netlify'
+const JWS_MAX_AGE_SECONDS = 5 * 60
 
 const FORM_CHATBOT = 'chatbot-lead'
 const FORM_VALUATION = 'seller-valuation'
@@ -65,23 +69,52 @@ function getServiceSupabase(): SupabaseClient {
   })
 }
 
-function verifyWebhookSecret(event: HandlerEvent): boolean {
-  const expected = process.env.WEBHOOK_SECRET?.trim()
-  if (!expected) return false
-  const header =
-    event.headers['x-webhook-secret'] ??
-    event.headers['X-Webhook-Secret'] ??
-    ''
-  return header.trim() === expected
-}
-
-function parsePayload(event: HandlerEvent): NetlifyWebhookPayload {
+function getRawBody(event: HandlerEvent): string {
   if (!event.body) {
     throw new Error('Empty request body')
   }
-  const raw = event.isBase64Encoded
+  return event.isBase64Encoded
     ? Buffer.from(event.body, 'base64').toString('utf8')
     : event.body
+}
+
+function getJwsSignatureHeader(event: HandlerEvent): string | null {
+  const value =
+    event.headers[JWS_HEADER] ?? event.headers['X-Webhook-Signature'] ?? null
+  return value?.trim() ?? null
+}
+
+/**
+ * Netlify outgoing webhook JWS: HS256 JWT in X-Webhook-Signature.
+ * Payload must include iss=netlify, sha256 of raw body, and fresh iat.
+ */
+function verifyJwsSignature(event: HandlerEvent, rawBody: string): boolean {
+  const secret = process.env.WEBHOOK_SECRET?.trim()
+  const signature = getJwsSignatureHeader(event)
+  if (!secret || !signature) return false
+
+  try {
+    const decoded = jwt.verify(signature, secret, {
+      algorithms: ['HS256'],
+      issuer: JWS_ISSUER,
+    }) as jwt.JwtPayload & { sha256?: string }
+
+    const bodyHash = createHash('sha256').update(rawBody, 'utf8').digest('hex')
+    if (decoded.sha256 !== bodyHash) return false
+
+    const iat = decoded.iat
+    if (typeof iat !== 'number') return false
+    const now = Math.floor(Date.now() / 1000)
+    if (iat > now + 60) return false
+    if (now - iat > JWS_MAX_AGE_SECONDS) return false
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parsePayload(raw: string): NetlifyWebhookPayload {
   const parsed = JSON.parse(raw) as NetlifyWebhookPayload & {
     payload?: NetlifyWebhookPayload
   }
@@ -281,12 +314,19 @@ export const handler: Handler = async (event) => {
     return jsonResponse(405, { error: 'Method not allowed' })
   }
 
-  if (!verifyWebhookSecret(event)) {
+  let rawBody: string
+  try {
+    rawBody = getRawBody(event)
+  } catch {
+    return jsonResponse(401, { error: 'Unauthorized' })
+  }
+
+  if (!verifyJwsSignature(event, rawBody)) {
     return jsonResponse(401, { error: 'Unauthorized' })
   }
 
   try {
-    const payload = parsePayload(event)
+    const payload = parsePayload(rawBody)
     const formName = payload.form_name?.trim()
     if (!formName) {
       throw new Error('Missing form_name')
