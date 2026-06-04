@@ -34,6 +34,7 @@ export interface Lead {
   budget_max: number | null
   listing_price: number | null
   purpose: string | null
+  is_archived: boolean
   created_at: string | null
   updated_at: string | null
 }

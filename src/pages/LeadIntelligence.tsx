@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import LeadFilters, { type LeadFiltersState } from '../components/LeadFilters'
 import LeadTable, { sortLeadsByScoreThenDate } from '../components/LeadTable'
 import type { Lead } from '../lib/types'
-import { getAllLeads } from '../services/leadsService'
-
-const TOTAL_LEADS = 867
+import {
+  archiveLead,
+  getAllLeads,
+  getLeadsCount,
+  unarchiveLead,
+} from '../services/leadsService'
 
 const defaultFilters: LeadFiltersState = {
   search: '',
@@ -52,9 +55,38 @@ function matchesFilters(lead: Lead, filters: LeadFiltersState): boolean {
 
 export default function LeadIntelligence() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [totalInDb, setTotalInDb] = useState(0)
+  const [archivedCount, setArchivedCount] = useState(0)
+  const [showArchived, setShowArchived] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<LeadFiltersState>(defaultFilters)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+
+  const refreshCounts = useCallback(async () => {
+    const [all, active] = await Promise.all([
+      getLeadsCount(true),
+      getLeadsCount(false),
+    ])
+    setTotalInDb(all)
+    setArchivedCount(all - active)
+  }, [])
+
+  const loadLeads = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [rows] = await Promise.all([
+        getAllLeads(showArchived),
+        refreshCounts(),
+      ])
+      setLeads(sortLeadsByScoreThenDate(rows))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load leads')
+    } finally {
+      setLoading(false)
+    }
+  }, [showArchived, refreshCounts])
 
   useEffect(() => {
     let cancelled = false
@@ -63,9 +95,15 @@ export default function LeadIntelligence() {
       setLoading(true)
       setError(null)
       try {
-        const rows = await getAllLeads()
+        const [rows, all, active] = await Promise.all([
+          getAllLeads(showArchived),
+          getLeadsCount(true),
+          getLeadsCount(false),
+        ])
         if (!cancelled) {
           setLeads(sortLeadsByScoreThenDate(rows))
+          setTotalInDb(all)
+          setArchivedCount(all - active)
         }
       } catch (err) {
         if (!cancelled) {
@@ -82,12 +120,66 @@ export default function LeadIntelligence() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [showArchived])
 
   const filtered = useMemo(() => {
     const matches = leads.filter((lead) => matchesFilters(lead, filters))
     return sortLeadsByScoreThenDate(matches)
   }, [leads, filters])
+
+  const activePoolTotal = totalInDb - archivedCount
+
+  const counterText = useMemo(() => {
+    const poolTotal = showArchived ? totalInDb : activePoolTotal
+    const base = `Showing ${filtered.length} of ${poolTotal} leads`
+    if (!showArchived && archivedCount > 0) {
+      return `${base} (${archivedCount} archived hidden)`
+    }
+    return base
+  }, [
+    filtered.length,
+    showArchived,
+    totalInDb,
+    activePoolTotal,
+    archivedCount,
+  ])
+
+  function showToast(message: string) {
+    setStatusMessage(message)
+    window.setTimeout(() => setStatusMessage(null), 4000)
+  }
+
+  async function handleArchive(leadId: string) {
+    const updated = await archiveLead(leadId)
+    await refreshCounts()
+    if (showArchived) {
+      setLeads((prev) =>
+        sortLeadsByScoreThenDate(
+          prev.map((l) => (l.id === leadId ? updated : l)),
+        ),
+      )
+    } else {
+      setLeads((prev) => prev.filter((l) => l.id !== leadId))
+    }
+    showToast('Lead archived. Toggle "Show archived leads" to view.')
+  }
+
+  async function handleUnarchive(leadId: string) {
+    const updated = await unarchiveLead(leadId)
+    await refreshCounts()
+    if (showArchived) {
+      setLeads((prev) =>
+        sortLeadsByScoreThenDate(
+          prev.map((l) => (l.id === leadId ? updated : l)),
+        ),
+      )
+    } else {
+      setLeads((prev) =>
+        sortLeadsByScoreThenDate([...prev, updated]),
+      )
+    }
+    showToast('Lead restored to your active list.')
+  }
 
   if (loading) {
     return (
@@ -105,6 +197,13 @@ export default function LeadIntelligence() {
     return (
       <div className="bg-white border border-mint rounded-lg p-6">
         <p className="font-body text-coral">{error}</p>
+        <button
+          type="button"
+          onClick={() => loadLeads()}
+          className="mt-3 font-label text-sm text-teal hover:text-navy"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -113,9 +212,27 @@ export default function LeadIntelligence() {
     <div className="space-y-4">
       <LeadFilters filters={filters} onChange={setFilters} />
 
-      <p className="font-label text-xs text-slate">
-        Showing {filtered.length} of {TOTAL_LEADS} leads
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-2 font-body text-sm text-navy cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="h-4 w-4 rounded border-mint text-teal focus:ring-teal"
+          />
+          Show archived leads
+        </label>
+        {statusMessage ? (
+          <p
+            className="font-body text-sm text-teal bg-mint/40 border border-mint rounded px-3 py-1.5"
+            role="status"
+          >
+            {statusMessage}
+          </p>
+        ) : null}
+      </div>
+
+      <p className="font-label text-xs text-slate">{counterText}</p>
 
       {filtered.length === 0 ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">
@@ -126,15 +243,18 @@ export default function LeadIntelligence() {
         </div>
       ) : (
         <LeadTable
-        leads={filtered}
-        onLeadUpdated={(updated) => {
-          setLeads((prev) =>
-            sortLeadsByScoreThenDate(
-              prev.map((l) => (l.id === updated.id ? updated : l)),
-            ),
-          )
-        }}
-      />
+          leads={filtered}
+          showArchived={showArchived}
+          onLeadUpdated={(updated) => {
+            setLeads((prev) =>
+              sortLeadsByScoreThenDate(
+                prev.map((l) => (l.id === updated.id ? updated : l)),
+              ),
+            )
+          }}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
+        />
       )}
     </div>
   )

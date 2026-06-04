@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import type { Lead } from '../lib/types'
 
 const LEAD_SELECT =
-  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, created_at, updated_at'
+  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at'
 
 const PURPOSE_MAX_LENGTH = 200
 
@@ -22,14 +22,30 @@ function assertNoError(error: { message: string } | null, context: string): void
   }
 }
 
+function applyArchiveFilter<T extends { eq: (col: string, val: boolean) => T }>(
+  query: T,
+  includeArchived: boolean,
+): T {
+  if (!includeArchived) {
+    return query.eq('is_archived', false)
+  }
+  return query
+}
+
 /**
- * Fetch every lead in the curated archive (all rows in `leads`).
+ * Fetch leads in the curated archive. By default excludes archived rows.
  */
-export async function getAllLeads(): Promise<Lead[]> {
-  const { data, error } = await supabase
+export async function getAllLeads(
+  includeArchived = false,
+): Promise<Lead[]> {
+  let query = supabase
     .from('leads')
     .select(LEAD_SELECT)
     .order('original_lead_date', { ascending: true, nullsFirst: false })
+
+  query = applyArchiveFilter(query, includeArchived)
+
+  const { data, error } = await query
 
   assertNoError(error, 'getAllLeads')
   return (data ?? []) as Lead[]
@@ -38,19 +54,26 @@ export async function getAllLeads(): Promise<Lead[]> {
 /**
  * Fetch leads whose `pipeline_stage` matches the given stage value.
  */
-export async function getLeadsByStage(stage: string): Promise<Lead[]> {
-  const { data, error } = await supabase
+export async function getLeadsByStage(
+  stage: string,
+  includeArchived = false,
+): Promise<Lead[]> {
+  let query = supabase
     .from('leads')
     .select(LEAD_SELECT)
     .eq('pipeline_stage', stage)
     .order('original_lead_date', { ascending: true, nullsFirst: false })
+
+  query = applyArchiveFilter(query, includeArchived)
+
+  const { data, error } = await query
 
   assertNoError(error, 'getLeadsByStage')
   return (data ?? []) as Lead[]
 }
 
 /**
- * Fetch a single lead by primary key. Throws if the id is not found.
+ * Fetch a single lead by primary key. Returns archived leads (direct lookup).
  */
 export async function getLeadById(id: string): Promise<Lead> {
   const { data, error } = await supabase
@@ -67,12 +90,16 @@ export async function getLeadById(id: string): Promise<Lead> {
 }
 
 /**
- * Return the total number of rows in `leads`.
+ * Return the number of rows in `leads`. When includeArchived is false, counts
+ * only the active (non-archived) pool.
  */
-export async function getLeadsCount(): Promise<number> {
-  const { count, error } = await supabase
-    .from('leads')
-    .select('*', { count: 'exact', head: true })
+export async function getLeadsCount(
+  includeArchived = true,
+): Promise<number> {
+  let query = supabase.from('leads').select('*', { count: 'exact', head: true })
+  query = applyArchiveFilter(query, includeArchived)
+
+  const { count, error } = await query
 
   assertNoError(error, 'getLeadsCount')
   return count ?? 0
@@ -90,6 +117,48 @@ export async function getLeadsBySource(source: string): Promise<Lead[]> {
 
   assertNoError(error, 'getLeadsBySource')
   return (data ?? []) as Lead[]
+}
+
+/**
+ * Hide a lead from daily views without deleting the record.
+ */
+export async function archiveLead(leadId: string): Promise<Lead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .update({
+      is_archived: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', leadId)
+    .select(LEAD_SELECT)
+    .single()
+
+  assertNoError(error, 'archiveLead')
+  if (!data) {
+    throw new Error(`archiveLead: no lead returned for id ${leadId}`)
+  }
+  return data as Lead
+}
+
+/**
+ * Restore an archived lead to the default active views.
+ */
+export async function unarchiveLead(leadId: string): Promise<Lead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .update({
+      is_archived: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', leadId)
+    .select(LEAD_SELECT)
+    .single()
+
+  assertNoError(error, 'unarchiveLead')
+  if (!data) {
+    throw new Error(`unarchiveLead: no lead returned for id ${leadId}`)
+  }
+  return data as Lead
 }
 
 /**

@@ -272,7 +272,7 @@ export default function MarketIntel() {
           {
             label: 'Total leads',
             value: formatCount(poolTotal),
-            sub: 'Active operational pool',
+            sub: 'Active pool (excludes archived)',
           },
           {
             label: 'Never worked',
@@ -396,8 +396,8 @@ export default function MarketIntel() {
       </IntelCard>
 
       <p className="font-body text-xs text-slate leading-relaxed">
-        These metrics describe your operational pool of {formatCount(poolTotal)}{' '}
-        leads. The historic archive of 2,152 leads showed a 62.8% never-worked
+        These metrics describe your active pool of {formatCount(poolTotal)}{' '}
+        non-archived leads. The historic archive of 2,152 leads showed a 62.8% never-worked
         rate; the curation rule removed 1,285 leads that were both old and never
         advanced.
       </p>

@@ -104,6 +104,7 @@ async function fetchAnalyticsRows(): Promise<AnalyticsRow[]> {
     .select(
       'pipeline_stage, source, budget_max, listing_price, original_lead_date',
     )
+    .eq('is_archived', false)
 
   if (error) {
     console.error('[marketIntelService] fetchAnalyticsRows:', error.message)
@@ -173,7 +174,7 @@ export async function getPriceBands(): Promise<PriceBandRow[]> {
 }
 
 /**
- * Lead counts by import source (operational pool).
+ * Lead counts by import source (active pool — excludes archived).
  */
 export async function getSourceBreakdown(): Promise<SourceBreakdown> {
   const rows = await fetchAnalyticsRows()
@@ -207,6 +208,7 @@ export async function getPoolHeadlineMetrics(
   const { data, error } = await client
     .from('leads')
     .select('pipeline_stage, status, original_lead_date')
+    .eq('is_archived', false)
 
   if (error) {
     console.error('[marketIntelService] getPoolHeadlineMetrics:', error.message)
