@@ -65,7 +65,7 @@ Per [Netlify deploy/webhook docs](https://docs.netlify.com/site-deploys/deploy-n
 - `source` = `website_chatbot`
 - `pipeline_stage` = `new`
 - `budget` → `budget_max` (numeric)
-- `area`, `beds`, `pre_approved`, `timeline` — not stored until Phase 5 `purpose` column
+- `area`, `beds`, `pre_approved`, `timeline` — composed into `purpose` on insert (Phase 5 Part 1)
 
 ---
 
@@ -138,7 +138,7 @@ That script signs payloads like Netlify (iss `netlify`, `sha256` of body, fresh 
 
 - Parallel email to Jason on each submission (separate Phase 6 work)
 - Gmail / Google Calendar integration
-- Storing chatbot `area` / `timeline` (Phase 5: `purpose` column on `leads`)
+- Manual purpose edits in Lead Intelligence (Phase 5 Part 1)
 - Configuring webhooks from the AgentPulse repo (manual step on the **website** Netlify site)
 
 ---

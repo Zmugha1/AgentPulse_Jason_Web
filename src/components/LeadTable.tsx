@@ -1,5 +1,6 @@
 import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
+import LeadPurposeEditor from './LeadPurposeEditor'
 
 /** Score DESC, then original_lead_date ASC (oldest first). Matches Morning Brief. */
 export function sortLeadsByScoreThenDate(leads: Lead[]): Lead[] {
@@ -113,9 +114,10 @@ function ContactCell({ lead }: { lead: Lead }) {
 
 type LeadTableProps = {
   leads: Lead[]
+  onLeadUpdated?: (lead: Lead) => void
 }
 
-export default function LeadTable({ leads }: LeadTableProps) {
+export default function LeadTable({ leads, onLeadUpdated }: LeadTableProps) {
   const sorted = sortLeadsByScoreThenDate(leads)
 
   return (
@@ -145,8 +147,14 @@ export default function LeadTable({ leads }: LeadTableProps) {
                 key={lead.id}
                 className="border-t border-mint/60 hover:bg-cream/50"
               >
-                <td className="px-3 py-2 font-semibold text-navy">
-                  {displayName(lead)}
+                <td className="px-3 py-2 font-semibold text-navy align-top">
+                  <div>{displayName(lead)}</div>
+                  {onLeadUpdated && (
+                    <LeadPurposeEditor
+                      lead={lead}
+                      onUpdated={onLeadUpdated}
+                    />
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <ContactCell lead={lead} />

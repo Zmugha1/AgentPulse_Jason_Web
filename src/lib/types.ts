@@ -33,6 +33,7 @@ export interface Lead {
   lender_status: string | null
   budget_max: number | null
   listing_price: number | null
+  purpose: string | null
   created_at: string | null
   updated_at: string | null
 }

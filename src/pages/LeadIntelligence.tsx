@@ -125,7 +125,16 @@ export default function LeadIntelligence() {
           </p>
         </div>
       ) : (
-        <LeadTable leads={filtered} />
+        <LeadTable
+        leads={filtered}
+        onLeadUpdated={(updated) => {
+          setLeads((prev) =>
+            sortLeadsByScoreThenDate(
+              prev.map((l) => (l.id === updated.id ? updated : l)),
+            ),
+          )
+        }}
+      />
       )}
     </div>
   )

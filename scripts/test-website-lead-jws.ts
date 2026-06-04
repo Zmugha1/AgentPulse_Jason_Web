@@ -104,18 +104,24 @@ async function main(): Promise<void> {
             phone: '262-555-0101',
             timestamp: new Date().toISOString(),
             budget: '450000',
+            area: 'Oconomowoc',
+            beds: '3',
+            timeline: '3-6 months',
+            pre_approved: 'yes',
           },
         },
         check: async (id: string) => {
           const { data } = await supabase
             .from('leads')
-            .select('source, score, status')
+            .select('source, score, status, purpose')
             .eq('id', id)
             .single()
           return (
             data?.source === 'website_chatbot' &&
             data.score !== null &&
-            data.score > 0
+            data.score > 0 &&
+            data.purpose ===
+              'Looking in Oconomowoc, 3 beds, Pre-approved, 3-6 months timeline'
           )
         },
       },
@@ -135,12 +141,13 @@ async function main(): Promise<void> {
         check: async (id: string) => {
           const { data } = await supabase
             .from('leads')
-            .select('source, has_home_to_sell')
+            .select('source, has_home_to_sell, purpose')
             .eq('id', id)
             .single()
           return (
             data?.source === 'website_valuation' &&
-            data.has_home_to_sell === true
+            data.has_home_to_sell === true &&
+            data.purpose === 'Seller, valuation inquiry'
           )
         },
       },
@@ -154,12 +161,13 @@ async function main(): Promise<void> {
         check: async (id: string) => {
           const { data } = await supabase
             .from('leads')
-            .select('source, pipeline_stage')
+            .select('source, pipeline_stage, purpose')
             .eq('id', id)
             .single()
           return (
             data?.source === 'website_newsletter' &&
-            data.pipeline_stage === 'new'
+            data.pipeline_stage === 'new' &&
+            data.purpose === null
           )
         },
       },

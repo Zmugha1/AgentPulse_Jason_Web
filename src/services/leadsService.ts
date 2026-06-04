@@ -2,7 +2,18 @@ import { supabase } from '../lib/supabase'
 import type { Lead } from '../lib/types'
 
 const LEAD_SELECT =
-  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, created_at, updated_at'
+  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, created_at, updated_at'
+
+const PURPOSE_MAX_LENGTH = 200
+
+function normalizePurpose(value: string | null): string | null {
+  if (value === null) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return trimmed.length > PURPOSE_MAX_LENGTH
+    ? trimmed.slice(0, PURPOSE_MAX_LENGTH)
+    : trimmed
+}
 
 function assertNoError(error: { message: string } | null, context: string): void {
   if (error) {
@@ -109,4 +120,30 @@ export async function updateLeadStatus(id: string, status: string): Promise<void
     .eq('id', id)
 
   assertNoError(error, 'updateLeadStatus')
+}
+
+/**
+ * Set or clear a lead's purpose (Jason's "what were they looking for").
+ * Empty or whitespace-only strings are stored as null. Truncates to 200 chars.
+ */
+export async function updateLeadPurpose(
+  leadId: string,
+  purpose: string | null,
+): Promise<Lead> {
+  const normalized = normalizePurpose(purpose)
+  const { data, error } = await supabase
+    .from('leads')
+    .update({
+      purpose: normalized,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', leadId)
+    .select(LEAD_SELECT)
+    .single()
+
+  assertNoError(error, 'updateLeadPurpose')
+  if (!data) {
+    throw new Error(`updateLeadPurpose: no lead returned for id ${leadId}`)
+  }
+  return data as Lead
 }

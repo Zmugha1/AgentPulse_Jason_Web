@@ -100,6 +100,12 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
         <div>
           <h3 className="font-heading text-xl text-navy">{displayName(lead)}</h3>
           <p className="font-body text-sm text-slate mt-1">{briefReason(lead)}</p>
+          {lead.purpose?.trim() ? (
+            <p className="font-body text-xs text-slate mt-1">
+              <span className="text-slate">Purpose:</span>{' '}
+              <span className="text-navy">{lead.purpose}</span>
+            </p>
+          ) : null}
         </div>
         <div className="text-right">
           <div

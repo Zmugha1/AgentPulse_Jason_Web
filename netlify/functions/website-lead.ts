@@ -38,6 +38,7 @@ export type LeadInsertRow = {
   has_home_to_sell: boolean | null
   budget_max: number | null
   listing_price: number | null
+  purpose: string | null
 }
 
 function jsonResponse(statusCode: number, body: Record<string, unknown>): HandlerResponse {
@@ -241,9 +242,29 @@ function toLeadForScoring(row: LeadInsertRow): Lead {
     lender_status: null,
     budget_max: row.budget_max,
     listing_price: row.listing_price,
+    purpose: row.purpose,
     created_at: null,
     updated_at: null,
   }
+}
+
+/** Best-effort purpose from chatbot extras (area, beds, pre_approved, timeline). */
+export function composeChatbotPurpose(
+  data: Record<string, unknown>,
+): string | null {
+  const area = stringField(data, 'area')
+  const beds = stringField(data, 'beds')
+  const preApproved = stringField(data, 'pre_approved')
+  const timeline = stringField(data, 'timeline')
+
+  const parts = [
+    area ? `Looking in ${area}` : null,
+    beds ? `${beds} beds` : null,
+    preApproved?.toLowerCase() === 'yes' ? 'Pre-approved' : null,
+    timeline ? `${timeline} timeline` : null,
+  ].filter((p): p is string => Boolean(p))
+
+  return parts.length > 0 ? parts.join(', ') : null
 }
 
 function applyScore(row: LeadInsertRow): LeadInsertRow {
@@ -272,6 +293,7 @@ export function chatbotMapper(
     has_home_to_sell: null,
     budget_max: parseBudgetMax(data),
     listing_price: null,
+    purpose: composeChatbotPurpose(data),
   }
   return applyScore(base)
 }
@@ -297,6 +319,7 @@ export function valuationMapper(
     has_home_to_sell: true,
     budget_max: null,
     listing_price: null,
+    purpose: 'Seller, valuation inquiry',
   }
   return applyScore(base)
 }
@@ -321,6 +344,7 @@ export function newsletterMapper(
     has_home_to_sell: null,
     budget_max: null,
     listing_price: null,
+    purpose: null,
   }
   return applyScore(base)
 }
