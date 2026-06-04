@@ -1,5 +1,19 @@
 # AgentPulse Jason Web — Session Log
 
+## 2026-06-04 — Phase 5 Part 3 complete (manual add-a-lead)
+
+**App:** `AddLeadModal.tsx` on Lead Intelligence; `+ Add Lead` button (teal); `addLead()` in `leadsService.ts` with `source=manual`, J-2c `scoreLead()` on insert, client-side authenticated insert (RLS).
+
+**Form fields:** name (required), phone, email, pipeline stage, purpose, budget, has home to sell, address, zip, original lead date. Inline validation; save disabled until both names filled.
+
+**Verified:** `scripts/test-add-lead.ts` (authenticated insert); `npm run build`; live Playwright `verify:add-lead-live` — add, persistence after hard refresh, archive regression on new lead, mobile modal, test row deleted (870 total / 869 active).
+
+**Phase 5 trifecta complete:** Part 1 purpose, Part 2 archive (+ Utopia demo), Part 3 manual add-a-lead.
+
+**Still pending:** Sidebar refactor, STZ form, Integrations placeholders (Phase 6 Part 0), Google OAuth, mobile polish (Phase 4), GA4 for Market Intel.
+
+**Commits:** `90c617c` — feat: phase 5 part 3, manual add-a-lead form; verification script follow-up.
+
 ## 2026-06-04 — Phase 5 Part 2 complete (lead archive)
 
 **Schema:** `supabase/migrations/20260604120000_add_lead_archive_flag.sql` — `is_archived boolean NOT NULL DEFAULT false` on `leads` (870 rows, all false at migration; reversible hide from daily views).
@@ -14,7 +28,7 @@
 
 **Verified:** `supabase db push --linked`; `npm run build`; Netlify deploy `index-OmSv-k4K.js`; active pool 869 after Utopia archived.
 
-**Still pending:** Bulk archive (if Jason asks), sidebar refactor, STZ form, manual add-a-lead, mobile polish (Phase 4), GA4 for Market Intel.
+**Still pending:** Bulk archive (if Jason asks), sidebar refactor, STZ form, mobile polish (Phase 4), GA4 for Market Intel. Manual add-a-lead shipped in Phase 5 Part 3 (same day).
 
 **Commit:** `4ad601f` — feat: phase 5 part 2, lead archive functionality per jason 6/2 meeting
 
