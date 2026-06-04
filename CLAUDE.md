@@ -10,3 +10,8 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - WEBHOOK_SECRET must be identical across all four locations: password manager, both Netlify sites' env vars, and local `.env.local`.
 - After 6 consecutive 4xx failures, Netlify auto-disables outgoing webhooks. Always check disabled state before debugging code.
 - For client-requested features, the first build should be free text not enumerated values. Add taxonomy only after seeing 6+ months of real values.
+
+## Rules added 2026-06-04
+
+- **UI features are not shipped until live UI is verified.** After reporting a UI-touching feature complete: hard refresh the live site (Ctrl+Shift+R), manually exercise the new UI end-to-end, verify persistence with another hard refresh, then mark shipped. Build pass + DB checks alone are insufficient.
+- Optional automation: `npx tsx scripts/verify-archive-live-ui.ts` (Playwright + `.env.local` service role) for archive regression on production.
