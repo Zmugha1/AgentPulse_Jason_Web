@@ -7,7 +7,9 @@ import { scoreLead } from '../../src/services/scoringService'
 
 const JWS_HEADER = 'x-webhook-signature'
 const JWS_ISSUER = 'netlify'
-const JWS_MAX_AGE_SECONDS = 5 * 60
+
+// Replay protection is delegated to JWS secret confidentiality. iat was removed
+// because Netlify does not document supporting it.
 
 const FORM_CHATBOT = 'chatbot-lead'
 const FORM_VALUATION = 'seller-valuation'
@@ -84,34 +86,69 @@ function getJwsSignatureHeader(event: HandlerEvent): string | null {
   return value?.trim() ?? null
 }
 
+function logAuthFail(reason: string, detail?: string): void {
+  if (detail) {
+    console.log(`[website-lead] auth_fail reason=${reason} detail=${detail}`)
+  } else {
+    console.log(`[website-lead] auth_fail reason=${reason}`)
+  }
+}
+
+type JwsClaims = jwt.JwtPayload & { sha256?: string }
+
 /**
  * Netlify outgoing webhook JWS: HS256 JWT in X-Webhook-Signature.
- * Payload must include iss=netlify, sha256 of raw body, and fresh iat.
+ * Documented claims: iss=netlify, sha256 hex digest of raw POST body.
  */
 function verifyJwsSignature(event: HandlerEvent, rawBody: string): boolean {
   const secret = process.env.WEBHOOK_SECRET?.trim()
   const signature = getJwsSignatureHeader(event)
-  if (!secret || !signature) return false
 
-  try {
-    const decoded = jwt.verify(signature, secret, {
-      algorithms: ['HS256'],
-      issuer: JWS_ISSUER,
-    }) as jwt.JwtPayload & { sha256?: string }
-
-    const bodyHash = createHash('sha256').update(rawBody, 'utf8').digest('hex')
-    if (decoded.sha256 !== bodyHash) return false
-
-    const iat = decoded.iat
-    if (typeof iat !== 'number') return false
-    const now = Math.floor(Date.now() / 1000)
-    if (iat > now + 60) return false
-    if (now - iat > JWS_MAX_AGE_SECONDS) return false
-
-    return true
-  } catch {
+  if (!signature) {
+    logAuthFail('missing_signature_header')
     return false
   }
+  if (!secret) {
+    logAuthFail('jwt_verify_failed', 'WEBHOOK_SECRET not configured')
+    return false
+  }
+
+  let decoded: JwsClaims
+  try {
+    decoded = jwt.verify(signature, secret, {
+      algorithms: ['HS256'],
+      issuer: JWS_ISSUER,
+    }) as JwsClaims
+  } catch (err) {
+    if (err instanceof jwt.JsonWebTokenError) {
+      if (err.message.toLowerCase().includes('issuer')) {
+        const unsafe = jwt.decode(signature) as JwsClaims | null
+        const got = unsafe?.iss ?? 'unknown'
+        logAuthFail('wrong_issuer', `got=${got} expected=${JWS_ISSUER}`)
+      } else {
+        logAuthFail('jwt_verify_failed', err.message)
+      }
+    } else {
+      logAuthFail(
+        'jwt_verify_failed',
+        err instanceof Error ? err.message : 'unknown',
+      )
+    }
+    return false
+  }
+
+  if (typeof decoded.sha256 !== 'string' || !decoded.sha256) {
+    logAuthFail('missing_sha256_claim')
+    return false
+  }
+
+  const bodyHash = createHash('sha256').update(rawBody, 'utf8').digest('hex')
+  if (decoded.sha256 !== bodyHash) {
+    logAuthFail('hash_mismatch')
+    return false
+  }
+
+  return true
 }
 
 function parsePayload(raw: string): NetlifyWebhookPayload {

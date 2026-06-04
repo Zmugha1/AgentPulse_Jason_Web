@@ -30,13 +30,10 @@ function loadEnvLocal(): void {
   }
 }
 
+/** Matches Netlify docs: iss + sha256 only (no documented iat requirement). */
 function signNetlifyJws(rawBody: string, secret: string): string {
   const sha256 = createHash('sha256').update(rawBody, 'utf8').digest('hex')
-  return jwt.sign(
-    { iss: 'netlify', sha256, iat: Math.floor(Date.now() / 1000) },
-    secret,
-    { algorithm: 'HS256' },
-  )
+  return jwt.sign({ iss: 'netlify', sha256 }, secret, { algorithm: 'HS256' })
 }
 
 function postEvent(rawBody: string, signature: string | null): HandlerEvent {
@@ -207,28 +204,32 @@ async function main(): Promise<void> {
       detail: `status=${wrong.status}`,
     })
 
-    const staleBody = JSON.stringify({
+    const retryBody = JSON.stringify({
       form_name: 'newsletter-signup',
-      data: { email: `stale${TEST_DOMAIN}` },
+      data: { email: `retry${TEST_DOMAIN}` },
     })
-    const staleSig = jwt.sign(
+    const retrySig = jwt.sign(
       {
         iss: 'netlify',
-        sha256: createHash('sha256').update(staleBody, 'utf8').digest('hex'),
+        sha256: createHash('sha256').update(retryBody, 'utf8').digest('hex'),
         iat: Math.floor(Date.now() / 1000) - 600,
       },
       secret,
-      { algorithm: 'HS256' },
+      { algorithm: 'HS256', noTimestamp: true },
     )
-    const stale = await invoke(
-      'stale iat (>5 min)',
-      JSON.parse(staleBody),
-      staleSig,
+    const retry = await invoke(
+      'Netlify retry JWT (old iat, valid iss+sha256)',
+      JSON.parse(retryBody),
+      retrySig,
     )
+    const retryParsed = JSON.parse(retry.body || '{}')
+    if (retry.status === 200 && retryParsed.id) {
+      insertedIds.push(retryParsed.id)
+    }
     results.push({
-      name: 'stale iat replay',
-      pass: stale.status === 401,
-      detail: `status=${stale.status}`,
+      name: 'Netlify retry JWT (old iat)',
+      pass: retry.status === 200,
+      detail: `status=${retry.status}`,
     })
 
     const badBody = 'not-json{{{'

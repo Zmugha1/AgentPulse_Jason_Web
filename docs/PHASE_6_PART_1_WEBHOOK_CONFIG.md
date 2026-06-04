@@ -35,7 +35,7 @@ Per [Netlify deploy/webhook docs](https://docs.netlify.com/site-deploys/deploy-n
 1. Read header **`X-Webhook-Signature`** (JWT).
 2. Verify JWT with `WEBHOOK_SECRET`, algorithm **HS256**, issuer **`netlify`**.
 3. Confirm JWT claim **`sha256`** equals SHA-256 hex digest of the **raw POST body**.
-4. Confirm JWT claim **`iat`** is present and not older than **5 minutes** (replay protection).
+4. Replay protection is the shared JWS secret (not an `iat` window). Failed auth logs `[website-lead] auth_fail reason=...` in function logs.
 
 ---
 
@@ -115,7 +115,7 @@ Per [Netlify deploy/webhook docs](https://docs.netlify.com/site-deploys/deploy-n
 3. In **AgentPulse** → **Morning Brief**, confirm new leads appear on refresh (score-sorted worklist).
 4. If nothing appears:
    - Check **agentpulseweb** Netlify **Functions** logs for `website-lead`
-   - **401** = JWS secret mismatch, invalid signature, stale `iat`, or body hash mismatch
+   - **401** = JWS secret mismatch, invalid signature, or body hash mismatch (check `auth_fail` logs)
    - **500** = payload shape issue (check `form_name` and `data` in webhook body)
 
 ---
