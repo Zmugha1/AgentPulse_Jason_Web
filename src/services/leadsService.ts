@@ -1,10 +1,58 @@
 import { supabase } from '../lib/supabase'
-import type { Lead } from '../lib/types'
+import type { AddLeadInput, Lead } from '../lib/types'
+import { scoreLead } from './scoringService'
 
 const LEAD_SELECT =
   'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at'
 
 const PURPOSE_MAX_LENGTH = 200
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function normalizePhone(value: string | null | undefined): string | null {
+  const trimmed = normalizeOptionalText(value ?? null)
+  if (!trimmed) return null
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length < 10) {
+    throw new Error('addLead: phone must contain at least 10 digits')
+  }
+  return trimmed
+}
+
+function normalizeEmail(value: string | null | undefined): string | null {
+  const trimmed = normalizeOptionalText(value ?? null)
+  if (!trimmed) return null
+  if (!trimmed.includes('@')) {
+    throw new Error('addLead: email must include @')
+  }
+  return trimmed
+}
+
+function normalizeZip(value: string | null | undefined): string | null {
+  const trimmed = normalizeOptionalText(value ?? null)
+  if (!trimmed) return null
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length !== 5) {
+    throw new Error('addLead: zip must be 5 digits')
+  }
+  return digits
+}
+
+function normalizeLeadDate(value: string | null | undefined): string {
+  if (value?.trim()) {
+    const parsed = new Date(`${value.trim()}T12:00:00`)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString()
+    }
+  }
+  const today = new Date()
+  today.setHours(12, 0, 0, 0)
+  return today.toISOString()
+}
 
 function normalizePurpose(value: string | null): string | null {
   if (value === null) return null
@@ -117,6 +165,78 @@ export async function getLeadsBySource(source: string): Promise<Lead[]> {
 
   assertNoError(error, 'getLeadsBySource')
   return (data ?? []) as Lead[]
+}
+
+/**
+ * Manually add a lead (walk-in, referral, networking). Scores on insert.
+ */
+export async function addLead(input: AddLeadInput): Promise<Lead> {
+  const firstName = normalizeOptionalText(input.first_name)
+  const lastName = normalizeOptionalText(input.last_name)
+  if (!firstName || !lastName) {
+    throw new Error('addLead: first name and last name are required')
+  }
+
+  const now = new Date().toISOString()
+  const pipelineStage = normalizeOptionalText(input.pipeline_stage ?? 'new') ?? 'new'
+  const draftForScoring: Lead = {
+    id: '00000000-0000-0000-0000-000000000000',
+    first_name: firstName,
+    last_name: lastName,
+    email: normalizeEmail(input.email),
+    phone: normalizePhone(input.phone),
+    address: normalizeOptionalText(input.address ?? null),
+    zip: normalizeZip(input.zip),
+    source: 'manual',
+    original_lead_date: normalizeLeadDate(input.original_lead_date),
+    last_contact_at: null,
+    pipeline_stage: pipelineStage,
+    score: null,
+    status: null,
+    has_home_to_sell: input.has_home_to_sell ?? false,
+    buying_or_renting: null,
+    lender_status: null,
+    budget_max: input.budget_max ?? null,
+    listing_price: null,
+    purpose: normalizePurpose(input.purpose ?? null),
+    is_archived: false,
+    created_at: now,
+    updated_at: now,
+  }
+
+  const { score, status } = scoreLead(draftForScoring)
+
+  const { data, error } = await supabase
+    .from('leads')
+    .insert({
+      first_name: draftForScoring.first_name,
+      last_name: draftForScoring.last_name,
+      email: draftForScoring.email,
+      phone: draftForScoring.phone,
+      address: draftForScoring.address,
+      zip: draftForScoring.zip,
+      source: 'manual',
+      original_lead_date: draftForScoring.original_lead_date,
+      last_contact_at: null,
+      pipeline_stage: pipelineStage,
+      score,
+      status,
+      has_home_to_sell: draftForScoring.has_home_to_sell,
+      budget_max: draftForScoring.budget_max,
+      listing_price: null,
+      purpose: draftForScoring.purpose,
+      is_archived: false,
+      created_at: now,
+      updated_at: now,
+    })
+    .select(LEAD_SELECT)
+    .single()
+
+  assertNoError(error, 'addLead')
+  if (!data) {
+    throw new Error('addLead: no lead returned after insert')
+  }
+  return data as Lead
 }
 
 /**

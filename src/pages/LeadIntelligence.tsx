@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import AddLeadModal from '../components/AddLeadModal'
 import LeadFilters, { type LeadFiltersState } from '../components/LeadFilters'
 import LeadTable, { sortLeadsByScoreThenDate } from '../components/LeadTable'
 import type { Lead } from '../lib/types'
@@ -62,6 +63,7 @@ export default function LeadIntelligence() {
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<LeadFiltersState>(defaultFilters)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [addModalOpen, setAddModalOpen] = useState(false)
 
   const refreshCounts = useCallback(async () => {
     const [all, active] = await Promise.all([
@@ -208,8 +210,30 @@ export default function LeadIntelligence() {
     )
   }
 
+  async function handleLeadAdded(lead: Lead) {
+    await refreshCounts()
+    setLeads((prev) => sortLeadsByScoreThenDate([...prev, lead]))
+    showToast('Lead added')
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setAddModalOpen(true)}
+          className="font-body text-sm text-white bg-teal border-2 border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy transition-colors"
+        >
+          + Add Lead
+        </button>
+      </div>
+
+      <AddLeadModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSuccess={handleLeadAdded}
+      />
+
       <LeadFilters filters={filters} onChange={setFilters} />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

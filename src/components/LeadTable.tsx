@@ -55,6 +55,7 @@ function formatSource(source: string | null): string {
   if (!source) return 'unknown'
   if (source === 'realtor_com_full') return 'realtor full'
   if (source === 'realtor_com_contacts') return 'realtor contacts'
+  if (source === 'manual') return 'manual'
   return source
 }
 

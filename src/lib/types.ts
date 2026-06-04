@@ -14,6 +14,21 @@ export type PipelineStage =
   | 'dead'
   | string
 
+/** Fields collected by the manual add-lead form (Phase 5 Part 3). */
+export interface AddLeadInput {
+  first_name: string
+  last_name: string
+  phone?: string | null
+  email?: string | null
+  pipeline_stage?: string
+  purpose?: string | null
+  budget_max?: number | null
+  has_home_to_sell?: boolean
+  address?: string | null
+  zip?: string | null
+  original_lead_date?: string | null
+}
+
 export interface Lead {
   id: string
   first_name: string | null
