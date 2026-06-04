@@ -130,7 +130,7 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Newsletter:** `pipeline_stage = 'new'`; intent via `source = website_newsletter`.
 
-**Chatbot fields dropped Part 1:** `area`, `beds`, `pre_approved`, `timeline` not written. **Phase 5 (next):** add `purpose` column (Jason: "what was their goal").
+**Chatbot extras:** `area`, `beds`, `pre_approved`, `timeline` composed into `purpose` on webhook insert (Phase 5 Part 1).
 
 **Verified:** Local handler tests (Step 6); live curl all three forms (Step 9); Morning Brief "Good evening, Jason" live; 870 leads, no test rows after cleanup.
 
@@ -140,9 +140,23 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Commit:** `4cdd50c` — feat: phase 6 part 1, website lead webhook + morning brief greeting
 
+## 2026-06-03 — Phase 5 Part 1 complete (lead purpose field)
+
+**Schema:** `supabase/migrations/20260603220000_add_lead_purpose_column.sql` — nullable `purpose text` on `leads` (870 rows start null).
+
+**App:** `updateLeadPurpose` in `leadsService.ts`; inline edit on Lead Intelligence (`LeadPurposeEditor` under name in `LeadTable`); read-only on Morning Brief `LeadCard`. Max 200 chars client + server.
+
+**Webhook:** Chatbot composes purpose from area/beds/pre_approved/timeline; valuation → `"Seller, valuation inquiry"`; newsletter → null.
+
+**Verified:** Local JWS tests (purpose assertions); `npm run build`; Supabase migration applied via `supabase db push`.
+
+**Still pending:** Archive (Jason #2 ask), manual add-a-lead form, sidebar refactor, Phase 4 mobile polish.
+
+**Commit:** `c8ec438` — feat: phase 5 part 1, lead purpose field per jason 6/2 meeting
+
 ### Next session
 
-Configure website webhooks (Zubia, ~15 min). Phase 5: `purpose` field + chatbot mapper. Phase 6 Part 2: email Jason on submit, GA4. Client Intel, Business Goals. Phase 4: mobile polish.
+Configure website webhooks (Zubia, ~15 min) if not done. Phase 6 Part 2: email Jason on submit, GA4. Client Intel, Business Goals. Phase 4: mobile polish. Optional: backfill purpose on named leads from 6/2 meeting notes.
 
 ### Open items
 
