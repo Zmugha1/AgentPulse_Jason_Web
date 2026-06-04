@@ -1,5 +1,23 @@
 # AgentPulse Jason Web — Session Log
 
+## 2026-06-04 — Phase 5 Part 2 complete (lead archive)
+
+**Schema:** `supabase/migrations/20260604120000_add_lead_archive_flag.sql` — `is_archived boolean NOT NULL DEFAULT false` on `leads` (870 rows, all false at migration; reversible hide from daily views).
+
+**Services:** `archiveLead` / `unarchiveLead` in `leadsService.ts`; `getAllLeads` / `getLeadsByStage` / `getLeadsCount` accept `includeArchived` (default false). `getLeadById` returns archived leads. Morning Brief and Market Intel queries always exclude archived.
+
+**UI:** Lead Intelligence — per-row Archive / Unarchive, "Show archived leads" toggle, counter with hidden archived count, toast on archive. Market Intel copy: active pool excludes archived.
+
+**Production example:** **Utopia** (Realtor.com rep) archived in live DB — hidden from Morning Brief and default Lead Intelligence; visible with toggle.
+
+**Jason 6/2 meeting asks now live:** #1 purpose (Phase 5 Part 1), #2 archive (this session).
+
+**Verified:** `supabase db push --linked`; `npm run build`; Netlify deploy `index-OmSv-k4K.js`; active pool 869 after Utopia archived.
+
+**Still pending:** Bulk archive (if Jason asks), sidebar refactor, STZ form, manual add-a-lead, mobile polish (Phase 4), GA4 for Market Intel.
+
+**Commit:** `4ad601f` — feat: phase 5 part 2, lead archive functionality per jason 6/2 meeting
+
 ## 2026-05-29 — Phase 0 complete
 
 Foundation live at https://agentpulseweb.netlify.app.
@@ -150,7 +168,7 @@ Market Intel live at https://agentpulseweb.netlify.app with three-tab nav (Morni
 
 **Verified:** Local JWS tests (purpose assertions); `npm run build`; Supabase migration applied via `supabase db push`.
 
-**Still pending:** Archive (Jason #2 ask), manual add-a-lead form, sidebar refactor, Phase 4 mobile polish.
+**Still pending:** Manual add-a-lead form, sidebar refactor, Phase 4 mobile polish. Archive shipped in Phase 5 Part 2 (2026-06-04).
 
 **Commit:** `c8ec438` — feat: phase 5 part 1, lead purpose field per jason 6/2 meeting
 
@@ -162,3 +180,45 @@ Configure website webhooks (Zubia, ~15 min) if not done. Phase 6 Part 2: email J
 
 - Add Jason's real email to Supabase Users before cutover.
 - Confirm Jason's response on his 8 leads when he reports back.
+
+## Session 2026-06-03 — Phase 6 Part 1 webhook + Phase 5 Part 1 purpose field
+
+**Commits this session:**
+
+- `4cdd50c` — feat: phase 6 part 1, website lead webhook + morning brief greeting
+- `ecf777c` — docs: phase 6 part 1 webhook config guide and session log
+- `08ab9f5` — fix: verify Netlify form webhooks with JWS signature instead of custom header
+- `af73130` — fix: webhook auth_fail logging and drop undocumented iat check
+- `c8ec438` — feat: phase 5 part 1, lead purpose field per jason 6/2 meeting
+- `fb4497a` — docs: session log phase 5 part 1 lead purpose
+
+**ADRs added:** 4
+
+- Netlify Form Webhooks use JWS, not custom headers
+- Replay protection delegated to JWS secret confidentiality
+- Lead purpose is free text, not enumerated
+- Authentication failures must be structured-logged
+
+**Incidents resolved:** 3
+
+- Webhook config typo (WEBHOOK_SECET)
+- Silent 401 rejections from Netlify Forms webhook
+- Browser cache showed pre-deploy version
+
+**Runbooks added:** 3
+
+- Configure Netlify Forms outgoing webhook
+- Debug failing Netlify Forms webhook
+- Inline-edit a lead field on Lead Intelligence
+
+**Voice rules added:** 0
+
+**Next session should start with:** Bulk archive only if Jason asks; otherwise sidebar refactor, manual add-a-lead, or Phase 4 mobile polish.
+
+**Blockers or open items:**
+
+- Sidebar refactor + STZ + Integrations placeholders deferred (Phase 6 Part 0)
+- Real STZ form needs sidebar to land first
+- Manual add-a-lead form pending
+- Mobile polish (Phase 4) pending
+- GA4 integration for Market Intel Website Activity (Phase 6 Part 2+)
