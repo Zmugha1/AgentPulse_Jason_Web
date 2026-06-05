@@ -271,3 +271,40 @@ Configure website webhooks (Zubia, ~15 min) if not done. Phase 6 Part 2: email J
 **Blockers or open items:**
 
 - None. Production is stable. Login is working. STZ form is live with verified content.
+
+## Session 2026-06-05 — Phase 6 Part 3 Google OAuth
+
+**Commits this session:**
+
+- `941fc73` — feat: phase 6 part 3, google oauth on integrations page
+
+**ADRs added:** 4
+
+- Token encryption via AES-256-GCM with env-var-derived key (TOKEN_ENCRYPTION_KEY)
+- OAuth flow via Netlify Functions (server-side), not client-side
+- CSRF protection via separate oauth_state table with 10-minute TTL
+- OAuth redirect lands at /integrations?status=... with URL param-driven toast display
+
+**Runbooks added:** 1
+
+- Connect or disconnect Google Account via Integrations page
+
+**Phase 6 status:** Part 3 COMPLETE
+
+- Integrations Google card: Connect / Disconnect OAuth flow live
+- Tokens stored encrypted in google_oauth_tokens (AES-256-GCM)
+- OAuth start/callback/disconnect Netlify Functions deployed
+- Live UI verification: end-to-end connect and disconnect on production
+
+**Pending for future sessions:**
+
+- Phase 7: Gmail lead reading, Calendar showings in Morning Brief (uses stored tokens)
+- Mobile polish (Phase 4)
+- GA4 integration for Market Intel Website Activity
+- Jason STZ needs_confirmation answers (q3_3, q4_2, q5_3, q5_5)
+
+**Next session should start with:** Phase 7 Gmail/Calendar integration using encrypted tokens, or mobile polish per Jason priority.
+
+**Blockers or open items:**
+
+- None. OAuth connection shipped and verified.

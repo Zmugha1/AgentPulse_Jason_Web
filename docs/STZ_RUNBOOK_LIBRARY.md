@@ -166,3 +166,33 @@
 **Expected output:** Database content matches source exactly.
 
 **Watch out for:** AI-generated content often "improves" awkward phrasing, adds generic professional language, or fabricates specifics. The smoothest, most polished version is often the fabricated one. Original human voice is often less polished and more specific. If a sentence reads "smooth" and "professional," suspect fabrication.
+
+---
+
+## RUN — Connect or disconnect Google Account on Integrations
+
+**Task:** Link or unlink Gmail + Calendar read-only access via Google OAuth on the Integrations page.
+
+**Trigger:** User wants AgentPulse to store encrypted OAuth tokens for future Gmail/Calendar features (Phase 7+).
+
+**Steps (Connect):**
+
+1. Sign in to https://agentpulseweb.netlify.app.
+2. Sidebar → Integrations.
+3. Google card should show **Not connected** and an enabled **Connect Google Account** button.
+4. Click **Connect Google Account**.
+5. Browser redirects to Google consent (AgentPulse, Gmail read, Calendar read, profile, email).
+6. Approve with the intended Google account (must be a configured OAuth test user until app is published).
+7. Browser returns to `/integrations?status=connected`.
+8. Card shows green checkmark, connected Google email, date, permissions, **Disconnect** button.
+9. Optional: Supabase Table Editor → google_oauth_tokens — one row; refresh_token_encrypted must not start with `1//` or `ya29.`
+
+**Steps (Disconnect):**
+
+1. On Integrations, click **Disconnect** on the Google card.
+2. Card returns to **Not connected** with **Connect Google Account**.
+3. Optional: google_oauth_tokens row for that user_email should be deleted.
+
+**Expected output:** Encrypted token row exists after connect; zero rows after disconnect. No Gmail/Calendar data is read in Phase 6 Part 3 — connection only.
+
+**Watch out for:** TOKEN_ENCRYPTION_KEY and GOOGLE_OAUTH_* must be set in Netlify Functions runtime. OAuth state expires in 10 minutes — if user delays on Google consent, retry Connect. Use incognito + hard refresh when testing live after deploy.

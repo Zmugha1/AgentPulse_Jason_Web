@@ -127,3 +127,67 @@
 **Consequence:** Standard rollback runbook is Netlify deploy re-publish. Git revert only for cases where the code itself is unrecoverable.
 
 **Never do:** Use git revert as the first response to a production deploy issue. Try Netlify deploy re-publish first.
+
+---
+
+## ADR — Token encryption via AES-256-GCM env-var key
+
+**Date:** 2026-06-05
+
+**Decision:** Google OAuth access and refresh tokens are encrypted at rest in Supabase using AES-256-GCM. Key material comes from TOKEN_ENCRYPTION_KEY (32-byte hex in env vars only).
+
+**Layer:** Tech / L4
+
+**Context:** Phase 6 Part 3 stores Gmail and Calendar OAuth tokens for future Phase 7 automation. Plaintext storage in google_oauth_tokens would expose long-lived refresh tokens if the database were compromised.
+
+**Consequence:** encryptToken/decryptToken in src/lib/tokenCrypto.ts. Netlify Functions encrypt before upsert; decryption only on server. Key must exist in Netlify (Builds + Functions + Runtime) and local .env.local. Never commit or paste key values in chat.
+
+**Never do:** Store OAuth refresh tokens in plaintext. Never generate or display TOKEN_ENCRYPTION_KEY in assistant output — instruct the human to run the generator locally.
+
+---
+
+## ADR — OAuth flow via Netlify Functions, not client-side
+
+**Date:** 2026-06-05
+
+**Decision:** Google OAuth authorization code exchange runs in Netlify Functions (google-oauth-start, google-oauth-callback, google-oauth-disconnect). GOOGLE_OAUTH_CLIENT_SECRET never enters the browser bundle.
+
+**Layer:** Tech / L3
+
+**Context:** Client-side OAuth would require exposing the client secret or using less secure patterns. Server-side exchange keeps secrets on Netlify and tokens encrypted before persistence.
+
+**Consequence:** Frontend calls /api/google-oauth-start with Supabase JWT; callback at /auth/google/callback hits google-oauth-callback function; disconnect revokes at Google then deletes row server-side.
+
+**Never do:** Put GOOGLE_OAUTH_CLIENT_SECRET in Vite env (VITE_*) or frontend code.
+
+---
+
+## ADR — CSRF state via oauth_state table with 10-minute TTL
+
+**Date:** 2026-06-05
+
+**Decision:** OAuth start generates a UUID state token stored in oauth_state with user_email. Callback rejects state older than 10 minutes or not found.
+
+**Layer:** Tech / L4
+
+**Context:** Google OAuth requires state parameter for CSRF protection. Ephemeral server-side storage ties state to AgentPulse user and limits replay window.
+
+**Consequence:** oauth_state table (service role only). google-oauth-start inserts state; google-oauth-callback validates created_at within 10 minutes, then deletes used state.
+
+**Never do:** Honor OAuth callbacks without state validation or accept expired state tokens.
+
+---
+
+## ADR — OAuth success redirect uses /integrations query params
+
+**Date:** 2026-06-05
+
+**Decision:** After OAuth callback, redirect to /integrations?status=connected (or status=error&reason=...). Integrations page reads params once, shows toast, clears URL with history.replaceState.
+
+**Layer:** Tech / L2
+
+**Context:** App uses tab-based navigation without React Router. Callback must land on Integrations tab; App.tsx sets activeTab=integrations when pathname is /integrations.
+
+**Consequence:** netlify.toml maps /auth/google/callback to callback function. Success and error UX is URL-driven toast on Integrations mount.
+
+**Never do:** Redirect OAuth callback to Morning Brief default tab without opening Integrations.
