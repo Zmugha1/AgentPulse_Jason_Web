@@ -1,5 +1,19 @@
 # AgentPulse Jason Web — Session Log
 
+## 2026-06-04 — Phase 6 Part 0 complete (sidebar nav + placeholders)
+
+**Layout:** Left sidebar (240px navy) replaces top-row tabs. `Sidebar.tsx` with lucide-react icons, 5 nav items, email + Sign Out at bottom. Mobile hamburger overlay with backdrop dismiss and body scroll lock.
+
+**New pages:** `MyAgentPulse.tsx` (STZ placeholder), `Integrations.tsx` (3 connection cards, disabled buttons).
+
+**Preserved:** Morning Brief, Lead Intelligence, Market Intel unchanged in behavior. Archive regression verified live.
+
+**Verified:** `npm run build`; live Playwright `verify:sidebar-nav-live` — all 5 nav items, mobile hamburger, hard-refresh default tab, archive on Lead Intelligence.
+
+**Pending:** Real STZ form (Build 2), Google OAuth (Build 3), mobile polish on existing pages (Build 4), GA4 (Build 5).
+
+**Commits:** `f5fd6fe` — feat: phase 6 part 0 sidebar; follow-up verify script + a11y fix.
+
 ## 2026-06-04 — Phase 5 Part 3 complete (manual add-a-lead)
 
 **App:** `AddLeadModal.tsx` on Lead Intelligence; `+ Add Lead` button (teal); `addLead()` in `leadsService.ts` with `source=manual`, J-2c `scoreLead()` on insert, client-side authenticated insert (RLS).

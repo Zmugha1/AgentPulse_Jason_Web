@@ -72,13 +72,14 @@ export default function Sidebar({
       ) : null}
 
       <aside
+        role="navigation"
+        aria-label="Main navigation"
         className={`
           flex flex-col w-60 shrink-0 bg-navy text-white h-full
           md:relative md:translate-x-0 md:z-auto
           fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
-        aria-label="Main navigation"
       >
         <div className="px-4 py-5 border-b border-white/10 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -97,7 +98,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+        <div className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id
             return (
@@ -121,7 +122,7 @@ export default function Sidebar({
               </button>
             )
           })}
-        </nav>
+        </div>
 
         <div className="mt-auto px-4 py-4 border-t border-white/10 space-y-3">
           <p className="font-body text-xs text-slate truncate" title={userEmail}>
