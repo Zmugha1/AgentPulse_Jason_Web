@@ -73,3 +73,96 @@
 **Expected output:** Field shows new value, persists across page reloads.
 
 **Watch out for:** Pressing Escape cancels without saving. Don't press Escape after typing if you want to keep the value.
+
+---
+
+## RUN — Supabase URL Configuration setup
+
+**Task:** Configure Site URL and Redirect URLs in Supabase Auth for proper redirect handling.
+
+**Trigger:** After creating a new Supabase project, OR if login is failing with redirect issues (localhost refused, magic link goes to wrong domain).
+
+**Steps:**
+
+1. Go to Supabase dashboard, open the project.
+2. Authentication → URL Configuration.
+3. Site URL: enter the full production URL with https://. Example: https://agentpulseweb.netlify.app
+4. Click Save changes.
+5. Under Redirect URLs, click Add URL.
+6. Add: https://[your-domain]/** (the /** wildcard covers all paths).
+7. Click Save.
+8. Wait 30 seconds for Supabase to apply.
+9. Test by triggering password recovery email. Email should now redirect to your production URL, not localhost.
+
+**Expected output:** Login works, magic links resolve to production domain, password reset emails contain working links.
+
+**Watch out for:** Site URL is often empty by default when a project is created via SDK or CLI rather than via the dashboard wizard. This is a silent failure: login appears to work as long as you have an active session token, but breaks the moment fresh authentication is needed.
+
+---
+
+## RUN — Magic link emergency login when password fails
+
+**Task:** Log into a Supabase-backed app when password sign-in is failing for any reason.
+
+**Trigger:** User cannot log in with known-good credentials. Either "Invalid credentials" error or redirect-broken password recovery.
+
+**Steps:**
+
+1. Supabase dashboard → Authentication → Users.
+2. Click on the failing user's row to open user details.
+3. Find "Send magic link" option in the panel.
+4. Click Send magic link.
+5. Check email inbox for the magic link email.
+6. Click the link. It should redirect to the production app and log in directly without password.
+7. Once logged in, use the in-app password change OR Supabase dashboard "Send password recovery" to set a fresh password.
+
+**Expected output:** User is logged into the app via session token set by magic link, bypassing password validation.
+
+**Watch out for:** Magic link will fail if Site URL is misconfigured (will redirect to localhost). Fix Site URL first.
+
+---
+
+## RUN — Production deploy rollback via Netlify
+
+**Task:** Restore the previous good deploy when current deploy has broken something on the live site.
+
+**Trigger:** Live site shows error, broken behavior, or failed login after a recent deploy.
+
+**Steps:**
+
+1. Go to https://app.netlify.com.
+2. Open the affected site (e.g., agentpulseweb).
+3. Click "Deploys" in the top nav.
+4. Find the most recent deploy that was working (usually one row above the broken one).
+5. Click on that row to open deploy details.
+6. Click "Publish deploy" (or "Restore this deploy").
+7. Confirm the action.
+8. Wait ~30 seconds for the deploy to propagate.
+9. Hard refresh the live site (Ctrl+Shift+R) to verify.
+
+**Expected output:** Live site returns to the prior working state. Code on main is unchanged.
+
+**Watch out for:** This is a deploy-level rollback, not a code rollback. Future deploys (auto or manual) will re-deploy the problematic commit unless code is also fixed. After rollback, either fix the code on main or hold further deploys until fix is ready.
+
+---
+
+## RUN — Verify seeded database content matches expected source
+
+**Task:** Confirm that seeded text in the database is the exact text intended, not a paraphrase or fabrication.
+
+**Trigger:** After any seed script runs that populated content meant to represent a real person's voice, knowledge, or domain content.
+
+**Steps:**
+
+1. Supabase dashboard → Table Editor → relevant table.
+2. Open the seeded row.
+3. Pick a distinctive answer or field with known-expected text.
+4. Click the cell to expand the value.
+5. Read the first sentence and compare to expected source.
+6. Verify exact match: not a paraphrase, not "improved" wording.
+7. If mismatch detected, STOP. Do not proceed with deploy.
+8. Re-seed with verified source content using a copy-only Cursor prompt.
+
+**Expected output:** Database content matches source exactly.
+
+**Watch out for:** AI-generated content often "improves" awkward phrasing, adds generic professional language, or fabricates specifics. The smoothest, most polished version is often the fabricated one. Original human voice is often less polished and more specific. If a sentence reads "smooth" and "professional," suspect fabrication.

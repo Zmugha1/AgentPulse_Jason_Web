@@ -204,3 +204,70 @@ Configure website webhooks (Zubia, ~15 min) if not done. Phase 6 Part 2: email J
 - Manual add-a-lead form pending
 - Mobile polish (Phase 4) pending
 - GA4 integration for Market Intel Website Activity (Phase 6 Part 2+)
+
+## Session 2026-06-04 — Phase 5 Part 3, Phase 6 Part 0, STZ form, login crisis
+
+**Commits this session:**
+
+- `90c617c` — feat: phase 5 part 3, manual add-a-lead form per jason 5/26 + 6/2 meetings
+- `4770b9c` — chore: add live add-lead verification script and session log phase 5 part 3
+- `f5fd6fe` — feat: phase 6 part 0, sidebar nav with placeholder pages for stz and integrations
+- `cbc82d9` — chore: sidebar nav live verification script and session log phase 6 part 0
+- `26fb833` — feat: phase 6 part 0 follow-up, stz profile form with bni-seeded answers (hallucinated seed)
+- `fd1c207` — fix: replace hallucinated stz seed with verified bni-voice text
+
+**ADRs added:** 4
+
+- Supabase Site URL must be set before any deploy
+- Cursor must not author seed data text
+- UI ship rule must include pre-push verification
+- Production rollback via Netlify deploy, not git revert
+
+**Incidents resolved:** 4
+
+- Login broken by empty Supabase Site URL
+- Cursor fabricated 25 STZ seed answers as Jason's voice
+- STZ commit pushed before live UI verification
+- Sidebar refactor pushed without local verification
+
+**Runbooks added:** 4
+
+- Supabase URL Configuration setup
+- Magic link emergency login when password fails
+- Production deploy rollback via Netlify
+- Verify seeded database content matches expected source
+
+**Voice rules added:** 1
+
+- Source-grounded content over polished content
+
+**Phase 5 status:** COMPLETE
+
+- Part 1: purpose field (6/3)
+- Part 2: archive functionality (6/3)
+- Part 3: manual add-a-lead (6/4)
+- All three of Jason's 6/2 meeting asks are live
+
+**Phase 6 status:** Part 0 COMPLETE, follow-ups in progress
+
+- Sidebar nav with 5 items
+- My AgentPulse page renders 25-question STZ form
+- Integrations page renders 3 connection-status cards
+- Jason's STZ profile seeded with verified BNI-voice text
+
+**Pending immediately:**
+
+- Add Jason as Supabase Auth user (jpyourrealtor@gmail.com), set password, send him credentials
+- 4 STZ answers flagged needs_confirmation pending Jason input (q3_3, q4_2, q5_3, q5_5)
+
+**Pending for Build 3-5 (separate future sessions):**
+
+- Real Google OAuth on Integrations page (Gmail + Calendar)
+- Mobile polish (Phase 4) for Lead Intelligence and other pages
+- GA4 integration for Market Intel Website Activity
+
+**Next session should start with:** Add Jason to Supabase Auth Users, send him his login credentials. Then decide priority among Build 3 (OAuth), Build 4 (mobile), Build 5 (GA4).
+
+**Blockers or open items:**
+
+- None. Production is stable. Login is working. STZ form is live with verified content.
