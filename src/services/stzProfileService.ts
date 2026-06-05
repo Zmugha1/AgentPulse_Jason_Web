@@ -1,11 +1,25 @@
 import { supabase } from '../lib/supabase'
-import { buildSeedRowPayload } from '../lib/stz-seed-data'
+import { STZ_SEED_ANSWERS } from '../lib/stz-seed-data'
 import type { StzAnswerSource, StzQuestionId } from '../lib/stz-questions'
 import { STZ_QUESTION_IDS } from '../lib/stz-questions'
 import type { StzProfile } from '../lib/types'
 
 const PROFILE_SELECT =
   'id, user_email, q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5, answer_sources, created_at, updated_at'
+
+function buildSeedRowPayload(userEmail: string) {
+  const answer_sources: Partial<Record<StzQuestionId, StzAnswerSource>> = {}
+  const row: Record<string, string | Partial<Record<StzQuestionId, StzAnswerSource>>> = {
+    user_email: userEmail.trim().toLowerCase(),
+    answer_sources,
+  }
+  for (const item of STZ_SEED_ANSWERS) {
+    const id = item.questionId as StzQuestionId
+    row[id] = item.answer
+    answer_sources[id] = item.source
+  }
+  return row
+}
 
 function assertNoError(error: { message: string } | null, context: string): void {
   if (error) {
