@@ -32,3 +32,7 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Live UI verification must precede push, not follow it. The CLAUDE.md UI ship rule applies BEFORE the commit hits main.
 - Cursor's default "ship fast" behavior must be explicitly overridden in every session prompt. The instruction "wait for approval before pushing" must appear in any prompt where the user wants to control push timing.
 - Polished, smooth, generic content is more suspicious than awkward, specific content. Original voice has texture; fabrications are bland.
+
+## Rules added 2026-06-05
+
+- **Never generate or display secrets in chat.** When a new secret is needed (encryption keys, API keys, webhook secrets), instruct the user to run the generation command locally and add the value to Netlify and `.env.local` themselves. Do not paste secret values in assistant output.

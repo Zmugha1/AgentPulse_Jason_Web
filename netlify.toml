@@ -9,6 +9,21 @@
   status = 200
 
 [[redirects]]
+  from = "/auth/google/callback"
+  to = "/.netlify/functions/google-oauth-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/google-oauth-start"
+  to = "/.netlify/functions/google-oauth-start"
+  status = 200
+
+[[redirects]]
+  from = "/api/google-oauth-disconnect"
+  to = "/.netlify/functions/google-oauth-disconnect"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

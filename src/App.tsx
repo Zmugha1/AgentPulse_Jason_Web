@@ -15,8 +15,19 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<AppTab>('brief')
+  const [activeTab, setActiveTab] = useState<AppTab>(() => {
+    const path = window.location.pathname.replace(/\/+$/, '') || '/'
+    if (path === '/integrations') return 'integrations'
+    return 'brief'
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    const path = window.location.pathname.replace(/\/+$/, '') || '/'
+    if (path === '/integrations') {
+      setActiveTab('integrations')
+    }
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
