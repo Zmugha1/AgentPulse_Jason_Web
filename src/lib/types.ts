@@ -1,5 +1,7 @@
 /** Supabase-aligned types for AgentPulse web (Phase 2). */
 
+import type { StzAnswerSource, StzQuestionId } from './stz-questions'
+
 export type LeadStatus = 'hot' | 'warm' | 'cold'
 
 export type PipelineStage =
@@ -50,6 +52,39 @@ export interface Lead {
   listing_price: number | null
   purpose: string | null
   is_archived: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface StzProfile {
+  id: string
+  user_email: string
+  q1_1: string | null
+  q1_2: string | null
+  q1_3: string | null
+  q1_4: string | null
+  q1_5: string | null
+  q2_1: string | null
+  q2_2: string | null
+  q2_3: string | null
+  q2_4: string | null
+  q2_5: string | null
+  q3_1: string | null
+  q3_2: string | null
+  q3_3: string | null
+  q3_4: string | null
+  q3_5: string | null
+  q4_1: string | null
+  q4_2: string | null
+  q4_3: string | null
+  q4_4: string | null
+  q4_5: string | null
+  q5_1: string | null
+  q5_2: string | null
+  q5_3: string | null
+  q5_4: string | null
+  q5_5: string | null
+  answer_sources: Partial<Record<StzQuestionId, StzAnswerSource>>
   created_at: string | null
   updated_at: string | null
 }
