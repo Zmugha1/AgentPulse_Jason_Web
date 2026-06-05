@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import Sidebar from './components/Sidebar'
+import type { AppTab } from './lib/navigation'
 import { supabase } from './lib/supabase'
+import Integrations from './pages/Integrations'
 import LeadIntelligence from './pages/LeadIntelligence'
 import MarketIntel from './pages/MarketIntel'
 import MorningBrief from './pages/MorningBrief'
-
-type AppTab = 'brief' | 'intelligence' | 'market'
+import MyAgentPulse from './pages/MyAgentPulse'
 
 function App() {
   const [email, setEmail] = useState('')
@@ -14,6 +16,7 @@ function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState<AppTab>('brief')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -28,6 +31,17 @@ function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      document.body.style.overflow = ''
+      return
+    }
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [sidebarOpen])
 
   async function handleSignIn(e: FormEvent) {
     e.preventDefault()
@@ -57,68 +71,36 @@ function App() {
 
   if (userEmail) {
     return (
-      <div className="min-h-screen bg-cream font-body text-navy">
-        <header className="bg-white border-b border-mint px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-heading text-2xl text-navy">AgentPulse</h1>
-          <div className="flex items-center gap-4">
-            <span className="font-body text-sm text-slate">{userEmail}</span>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="font-body text-teal border-2 border-teal rounded px-4 py-2 hover:bg-cream transition-colors"
+      <div className="flex h-screen bg-cream font-body text-navy overflow-hidden">
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          userEmail={userEmail}
+          onSignOut={handleSignOut}
+          mobileOpen={sidebarOpen}
+          onMobileOpenChange={setSidebarOpen}
+        />
+
+        <div className="flex flex-1 flex-col min-w-0 min-h-0">
+          {error ? (
+            <p
+              className="font-body text-coral text-sm px-4 pt-3 md:pt-4 shrink-0"
+              role="alert"
             >
-              Sign Out
-            </button>
-          </div>
-        </header>
+              {error}
+            </p>
+          ) : null}
 
-        <nav className="bg-white border-b border-mint px-4 flex gap-6">
-          <button
-            type="button"
-            onClick={() => setActiveTab('brief')}
-            className={`font-body py-3 border-b-2 transition-colors ${
-              activeTab === 'brief'
-                ? 'border-teal text-navy font-semibold'
-                : 'border-transparent text-slate hover:text-navy'
-            }`}
-          >
-            Morning Brief
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('intelligence')}
-            className={`font-body py-3 border-b-2 transition-colors ${
-              activeTab === 'intelligence'
-                ? 'border-teal text-navy font-semibold'
-                : 'border-transparent text-slate hover:text-navy'
-            }`}
-          >
-            Lead Intelligence
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('market')}
-            className={`font-body py-3 border-b-2 transition-colors ${
-              activeTab === 'market'
-                ? 'border-teal text-navy font-semibold'
-                : 'border-transparent text-slate hover:text-navy'
-            }`}
-          >
-            Market Intel
-          </button>
-        </nav>
-
-        {error && (
-          <p className="font-body text-coral text-sm px-4 pt-3" role="alert">
-            {error}
-          </p>
-        )}
-
-        <main className="p-4 max-w-[1400px] mx-auto">
-          {activeTab === 'brief' && <MorningBrief />}
-          {activeTab === 'intelligence' && <LeadIntelligence />}
-          {activeTab === 'market' && <MarketIntel />}
-        </main>
+          <main className="flex-1 overflow-y-auto bg-cream p-4 pt-14 md:pt-4">
+            <div className="max-w-[1400px] mx-auto">
+              {activeTab === 'brief' && <MorningBrief />}
+              {activeTab === 'intelligence' && <LeadIntelligence />}
+              {activeTab === 'market' && <MarketIntel />}
+              {activeTab === 'agentpulse' && <MyAgentPulse />}
+              {activeTab === 'integrations' && <Integrations />}
+            </div>
+          </main>
+        </div>
       </div>
     )
   }
