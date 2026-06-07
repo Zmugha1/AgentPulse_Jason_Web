@@ -191,3 +191,62 @@
 **Consequence:** netlify.toml maps /auth/google/callback to callback function. Success and error UX is URL-driven toast on Integrations mount.
 
 **Never do:** Redirect OAuth callback to Morning Brief default tab without opening Integrations.
+
+---
+
+## ADR — Secrets must never be displayed in chat output
+
+**Date:** 2026-06-05
+
+**Decision:** When Cursor generates a secret (encryption key, API key, token, password), it must NOT print the value to chat. Instead, it instructs the user to run the generation command themselves and keep the value local. The user pastes secrets to env files directly, never back to Cursor or to Claude.
+
+**Layer:** Tech / Security
+
+**Context:** During Phase 6 Part 3 OAuth build, Cursor's Step 2 generated TOKEN_ENCRYPTION_KEY and printed the full 64-char hex value in chat output. This exposed the key to the conversation history. Discarded and regenerated. Separately, GOOGLE_OAUTH_CLIENT_SECRET appeared in a PowerShell command output that was pasted to chat during a file-editing diagnostic, requiring rotation in Google Cloud Console.
+
+**Consequence:** All future Cursor prompts involving secrets must include the rule "do not generate or display secret values in chat output." When a secret needs to be created, Cursor instructs the user with the generation command and the user runs it locally.
+
+**Never do:** Print or echo a secret value to chat output, even with intent to share with the user. The user runs the command themselves.
+
+---
+
+## ADR — Local env file edits via PowerShell append, not editor copy-paste
+
+**Date:** 2026-06-05
+
+**Decision:** For adding new env vars to `.env.local`, use PowerShell `Add-Content` command instead of opening in an editor and saving. Reduces risk of formatting errors (mashed-together lines, missing newlines, unsaved buffer) that break the entire file.
+
+**Layer:** Tech / Process
+
+**Context:** Three separate attempts to add TOKEN_ENCRYPTION_KEY to `.env.local` failed for different reasons: (1) edited but not saved, (2) added literal placeholder text "YOUR_64_CHAR_HEX_KEY_HERE" instead of the actual value, (3) Add-Content ran but the value written was the placeholder literal, causing mangled file. Required Notepad manual cleanup.
+
+**Consequence:** When adding to `.env.local`, run something like:
+
+`Add-Content -Path .env.local -Value "KEY_NAME=actual_value"`
+
+Then verify with: `Get-Content .env.local | Measure-Object -Line`
+
+Should show expected number of lines. If file is mangled, open in Notepad and manually fix line breaks.
+
+**Never do:** Tell Cursor or anyone "use Add-Content with YOUR_KEY_HERE as a placeholder" — the placeholder gets written literally. Always paste the actual value into the command.
+
+---
+
+## ADR — Production rollback isn't always the right diagnostic step
+
+**Date:** 2026-06-05
+
+**Decision:** When a recent deploy is suspected of breaking something, rollback should not be the first action. Diagnose the actual cause first. Rollback can mask the real problem and create a false sense of fix.
+
+**Layer:** Process
+
+**Context:** Yesterday's rollback of commit 26fb833 was based on the assumption that the STZ commit broke login. Today's diagnostic work would have shown that login had been broken since the start — the Supabase Site URL was never configured. The STZ commit was innocent. Rollback wasted ~30 minutes and created confusion about what was actually broken.
+
+**Consequence:** When something appears broken after a deploy:
+
+1. First, check whether the issue exists on previous deploys
+2. Reproduce locally if possible
+3. Identify root cause before rolling back
+4. Rollback only after confirming the deploy actually caused it
+
+**Never do:** Roll back as a first response to a production issue. Diagnose first.

@@ -19,3 +19,9 @@ No new voice rules from today's session.
 **Example bad:** "I am Jason Patterson, a full-time residential Realtor with the Sue Patti Group, helping buyers and sellers across southeastern Wisconsin with honest guidance, steady follow-up, and relationships built to last beyond one transaction."
 
 **STZ source:** Phase 6 Part 0 STZ seed incident, 6/4. Caught the hallucinated version because "relationships built to last" is generic marketing language and "Patterson" was the wrong last name.
+
+---
+
+## 2026-06-05
+
+No new voice rules from today's session.

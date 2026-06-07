@@ -196,3 +196,123 @@
 **Expected output:** Encrypted token row exists after connect; zero rows after disconnect. No Gmail/Calendar data is read in Phase 6 Part 3 — connection only.
 
 **Watch out for:** TOKEN_ENCRYPTION_KEY and GOOGLE_OAUTH_* must be set in Netlify Functions runtime. OAuth state expires in 10 minutes — if user delays on Google consent, retry Connect. Use incognito + hard refresh when testing live after deploy.
+
+---
+
+## RUN — Generate and store a new encryption key
+
+**Task:** Create a new secret key (encryption key, API key, signing key) and store it in both Netlify and local `.env.local` without exposing the value to chat or version control.
+
+**Trigger:** When a new symmetric encryption key, signing secret, or similar value is needed for a build.
+
+**Steps:**
+
+1. Generate the key in PowerShell directly, without echoing to chat:
+
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+   The 64-char hex string appears in your terminal. DO NOT copy it to Claude or Cursor chat.
+
+2. Save the key to your password manager (e.g., 1Password, Bitwarden) with a descriptive label like "AgentPulse TOKEN_ENCRYPTION_KEY".
+
+3. Copy from password manager when needed for the next two steps.
+
+4. Add to Netlify:
+
+   Site → Configuration → Environment variables → Add a variable
+
+   Key: descriptive name (e.g., TOKEN_ENCRYPTION_KEY)
+
+   Value: paste from password manager
+
+   Mark as Secret: yes
+
+   Scopes: Builds, Functions, Runtime (or All scopes for non-runtime secrets)
+
+   Same value for all deploy contexts
+
+   Save.
+
+5. Add to `.env.local` using direct write:
+
+   `Add-Content -Path .env.local -Value "TOKEN_ENCRYPTION_KEY=<paste actual value>"`
+
+   Verify line count: `Get-Content .env.local | Measure-Object -Line`
+
+   Should show expected total line count for your env file.
+
+6. Run a quick test that exercises the secret without printing it:
+
+   If it's an encryption key, run a round-trip test (encrypt then decrypt a known string, verify match).
+
+   If it's an API key, make a minimal API call that requires the key.
+
+**Expected output:** Secret available to both production and local development. No traces in chat history, git history, or screenshots.
+
+**Watch out for:**
+
+- Don't paste the secret to chat for verification — use a test that doesn't print the value
+- Don't use placeholder text like "YOUR_KEY_HERE" in commands — the literal placeholder gets written
+- Don't run Get-Content `.env.local` then paste the full output for "verification" — that exposes every secret in the file
+
+---
+
+## RUN — Rotate a leaked OAuth client secret
+
+**Task:** Replace a Google OAuth Client Secret that has been exposed.
+
+**Trigger:** Client secret appears in chat, screenshot, public repo, or any other unintended location.
+
+**Steps:**
+
+1. Open https://console.cloud.google.com/apis/credentials?project=YOUR_PROJECT
+2. Click on the affected OAuth 2.0 Client ID (e.g., "AgentPulse Web Client")
+3. Find "Client secrets" section in the client details
+4. Click "Add secret" to generate a new one (Google now supports multiple active secrets per client for zero-downtime rotation)
+5. Copy the new secret immediately. Save to password manager.
+6. Update Netlify env var GOOGLE_OAUTH_CLIENT_SECRET with the new value
+7. Update `.env.local` with the new value
+8. Verify OAuth flow still works (run a Connect/Disconnect cycle)
+9. Return to Google Cloud, disable or delete the OLD secret
+10. Confirm Netlify production deployment picks up the new secret (may require triggering a redeploy)
+
+**Expected output:** OAuth continues working with the new secret. Old leaked secret no longer authenticates.
+
+**Watch out for:**
+
+- Don't delete the old secret until the new one is verified working
+- Some Google client configurations have a one-secret-only setting; in that case "Reset Secret" replaces immediately and there's a brief window where existing sessions may need re-authentication
+- The new secret needs to propagate to Netlify and trigger a rebuild before production picks it up
+
+---
+
+## RUN — Diagnose login failure on Supabase-backed app
+
+**Task:** Systematic diagnosis when login starts failing for a Supabase-authenticated app.
+
+**Trigger:** User reports "Invalid credentials" or "No API key found" errors after login attempt.
+
+**Steps:**
+
+1. Confirm the user exists in Supabase Authentication → Users
+   - Note the "Last signed in" timestamp
+   - Note the "Confirmed at" status
+2. Try login in incognito window with hard refresh (Ctrl+Shift+R)
+   - Rules out browser cache and stale session tokens
+3. Open browser DevTools → Network tab → attempt login
+   - Look for the request to `auth/v1/token?grant_type=password`
+   - Note the HTTP status code and response body
+4. Interpret the response:
+   - 400 "No API key found in request" → Supabase client lacks apikey header. Check Site URL configuration in Authentication → URL Configuration (must be set to production URL with https://, not empty). Add production URL to Redirect URLs allowlist with `/**` wildcard.
+   - 400 "Invalid login credentials" → Password mismatch or user not confirmed. Try magic link from Supabase user details panel.
+   - Failed to load resource entirely → Network issue or Supabase project paused/deleted.
+5. If Site URL was empty, set it to the production URL (e.g., https://agentpulseweb.netlify.app) and save. Wait 30 seconds.
+6. Test login again in fresh incognito.
+7. If still failing, use magic link from Supabase user details to log in directly, then set a new password from within the authenticated session.
+
+**Expected output:** User can log in successfully.
+
+**Watch out for:**
+
+- Session tokens persist across browser sessions, so old success may mask new failures until logout/incognito
+- The "Invalid credentials" error is misleading when the actual issue is missing Site URL — Supabase reports the symptom, not the root cause

@@ -36,3 +36,8 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 ## Rules added 2026-06-05
 
 - **Never generate or display secrets in chat.** When a new secret is needed (encryption keys, API keys, webhook secrets), instruct the user to run the generation command locally and add the value to Netlify and `.env.local` themselves. Do not paste secret values in assistant output.
+- Never paste `.env.local` contents to chat for verification. Use `Measure-Object -Line` for count or run a test that exercises the secret without printing it.
+- Never use placeholder text like "YOUR_KEY_HERE" in commands the user will execute. Either let the user generate the value via the command directly, or warn explicitly that the placeholder must be substituted.
+- Rotation is required when any secret appears in chat output, including PowerShell output pasted to chat.
+- Supabase Site URL must be set on every new project — empty Site URL silently breaks auth flows.
+- Diagnose before rollback. Confirm the deploy actually caused the issue before reverting.
