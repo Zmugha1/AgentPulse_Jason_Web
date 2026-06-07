@@ -24,6 +24,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/calendar-events"
+  to = "/.netlify/functions/calendar-events"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
