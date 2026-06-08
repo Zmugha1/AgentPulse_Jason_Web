@@ -10,9 +10,11 @@
     "preview": "vite preview",
     "verify:archive-live": "tsx scripts/verify-archive-live-ui.ts",
     "verify:add-lead-live": "tsx scripts/verify-add-lead-live-ui.ts",
-    "verify:sidebar-nav-live": "tsx scripts/verify-sidebar-nav-live-ui.ts"
+    "verify:sidebar-nav-live": "tsx scripts/verify-sidebar-nav-live-ui.ts",
+    "verify:stz-form-live": "tsx scripts/verify-stz-form-live-ui.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@supabase/supabase-js": "^2.106.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",

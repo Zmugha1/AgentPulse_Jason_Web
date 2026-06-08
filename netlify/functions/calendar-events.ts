@@ -50,16 +50,28 @@ function errorResponse(statusCode: number, code: string, message: string) {
   return json(statusCode, { code, message })
 }
 
+type CalendarRange = 'today' | 'week'
+
+function todayYmdInTimeZone(timeZone: string): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone })
+}
+
+function addDaysToYmd(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
 /** Start/end of calendar day in `timeZone`, as RFC3339 UTC instants for Google API. */
 function getTodayBoundsInTimeZone(timeZone: string): {
   timeMin: string
   timeMax: string
 } {
-  const now = new Date()
-  const ymd = now.toLocaleDateString('en-CA', { timeZone })
+  const ymd = todayYmdInTimeZone(timeZone)
   const [year, month, day] = ymd.split('-').map(Number)
 
-  const offsetMs = getTimeZoneOffsetMs(timeZone, now)
+  const offsetMs = getTimeZoneOffsetMs(timeZone, new Date())
   const startUtc = Date.UTC(year, month - 1, day, 0, 0, 0, 0) - offsetMs
   const endUtc = Date.UTC(year, month - 1, day, 23, 59, 59, 999) - offsetMs
 
@@ -67,6 +79,28 @@ function getTodayBoundsInTimeZone(timeZone: string): {
     timeMin: new Date(startUtc).toISOString(),
     timeMax: new Date(endUtc).toISOString(),
   }
+}
+
+/** Today 00:00 through start of day 7 days later (exclusive), in `timeZone`. */
+function getWeekBoundsInTimeZone(timeZone: string): {
+  timeMin: string
+  timeMax: string
+} {
+  const todayYmd = todayYmdInTimeZone(timeZone)
+  const exclusiveEndYmd = addDaysToYmd(todayYmd, 7)
+  return {
+    timeMin: zonedStartOfDate(todayYmd, timeZone),
+    timeMax: zonedStartOfDate(exclusiveEndYmd, timeZone),
+  }
+}
+
+function getBoundsForRange(
+  range: CalendarRange,
+  timeZone: string,
+): { timeMin: string; timeMax: string } {
+  return range === 'week'
+    ? getWeekBoundsInTimeZone(timeZone)
+    : getTodayBoundsInTimeZone(timeZone)
 }
 
 function getTimeZoneOffsetMs(timeZone: string, at: Date): number {
@@ -147,10 +181,15 @@ export const handler: Handler = async (event) => {
     return errorResponse(405, 'method_not_allowed', 'Method not allowed')
   }
 
-  const range = event.queryStringParameters?.range ?? 'today'
-  if (range !== 'today') {
-    return errorResponse(400, 'invalid_range', 'Only range=today is supported')
+  const rangeParam = event.queryStringParameters?.range ?? 'today'
+  if (rangeParam !== 'today' && rangeParam !== 'week') {
+    return errorResponse(
+      400,
+      'invalid_range',
+      'Only range=today or range=week is supported',
+    )
   }
+  const range: CalendarRange = rangeParam
 
   try {
     const user = await requireAuthenticatedUser(event)
@@ -174,7 +213,7 @@ export const handler: Handler = async (event) => {
       )
     }
 
-    const { timeMin, timeMax } = getTodayBoundsInTimeZone(USER_TIMEZONE)
+    const { timeMin, timeMax } = getBoundsForRange(range, USER_TIMEZONE)
     const params = new URLSearchParams({
       timeMin,
       timeMax,
@@ -238,6 +277,7 @@ export const handler: Handler = async (event) => {
 
     safeLog('calendar_fetch_succeeded', {
       user_email: userEmail,
+      range,
       event_count: events.length,
     })
 

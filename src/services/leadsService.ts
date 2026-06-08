@@ -154,6 +154,35 @@ export async function getLeadsCount(
 }
 
 /**
+ * Find leads whose email matches any of the given addresses (case-insensitive).
+ */
+export async function findLeadsByEmails(emails: string[]): Promise<Lead[]> {
+  const normalized = [
+    ...new Set(
+      emails
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    ),
+  ]
+
+  if (normalized.length === 0) {
+    return []
+  }
+
+  const orFilter = normalized
+    .map((email) => `email.ilike.${email}`)
+    .join(',')
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select(LEAD_SELECT)
+    .or(orFilter)
+
+  assertNoError(error, 'findLeadsByEmails')
+  return (data ?? []) as Lead[]
+}
+
+/**
  * Fetch leads from a single import source (e.g. zillow, realtor_com_full).
  */
 export async function getLeadsBySource(source: string): Promise<Lead[]> {

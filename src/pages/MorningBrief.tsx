@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import EventPreparePanel from '../components/EventPreparePanel'
 import LeadCard from '../components/LeadCard'
 import type { Lead } from '../lib/types'
 import {
-  getTodayEvents,
+  getWeekEvents,
+  groupEventsByDay,
   isGoogleConnected,
+  weekDayKeysInChicago,
   type CalendarEvent,
   type CalendarEventsErrorCode,
 } from '../services/calendarService'
@@ -46,7 +50,7 @@ function formatEventTimeRange(startIso: string, endIso: string): string {
     minute: '2-digit',
     timeZone: DISPLAY_TIMEZONE,
   })
-  return `${fmt.format(start)} — ${fmt.format(end)}`
+  return `${fmt.format(start)} - ${fmt.format(end)}`
 }
 
 function attendeeLabel(count: number): string | null {
@@ -54,26 +58,92 @@ function attendeeLabel(count: number): string | null {
   return count === 1 ? '1 attendee' : `${count} attendees`
 }
 
-function TodaysCalendarSection({
+function formatDayHeader(dayKey: string, todayKey: string): string {
+  const [year, month, day] = dayKey.split('-').map(Number)
+  const probe = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+  const weekday = probe.toLocaleDateString('en-US', {
+    weekday: 'long',
+    timeZone: DISPLAY_TIMEZONE,
+  })
+  const monthDay = probe.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    timeZone: DISPLAY_TIMEZONE,
+  })
+  if (dayKey === todayKey) {
+    return `Today, ${weekday} ${monthDay}`
+  }
+  return `${weekday}, ${monthDay}`
+}
+
+function eventCountLabel(count: number): string {
+  return count === 1 ? '1 event' : `${count} events`
+}
+
+function CalendarEventRow({
+  event,
+  onPrepare,
+}: {
+  event: CalendarEvent
+  onPrepare: (event: CalendarEvent) => void
+}) {
+  const attendees = attendeeLabel(event.attendees_count)
+
+  return (
+    <li className="border border-mint rounded-lg p-4 bg-cream/40">
+      <p className="font-label text-xs text-teal uppercase tracking-wide">
+        {formatEventTimeRange(event.start_time, event.end_time)}
+      </p>
+      <p className="font-body text-navy mt-1">{event.summary}</p>
+      {event.location ? (
+        <p className="font-body text-sm text-slate mt-1">{event.location}</p>
+      ) : null}
+      {attendees ? (
+        <p className="font-body text-sm text-slate mt-1">{attendees}</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => onPrepare(event)}
+        className="mt-3 font-body text-sm text-navy bg-white border border-mint rounded px-3 py-2 min-h-[44px] hover:bg-cream"
+      >
+        Prepare
+      </button>
+    </li>
+  )
+}
+
+function WeeksCalendarSection({
   loading,
   connected,
-  events,
+  groupedEvents,
+  dayKeys,
+  expandedDays,
+  onToggleDay,
+  onPrepare,
   errorCode,
   errorMessage,
 }: {
   loading: boolean
   connected: boolean | null
-  events: CalendarEvent[]
+  groupedEvents: Record<string, CalendarEvent[]>
+  dayKeys: string[]
+  expandedDays: Set<string>
+  onToggleDay: (dayKey: string) => void
+  onPrepare: (event: CalendarEvent) => void
   errorCode: CalendarEventsErrorCode | null
   errorMessage: string | null
 }) {
+  const todayKey = dayKeys[0] ?? ''
+
   return (
     <section className="bg-white border border-mint rounded-lg p-6">
-      <h3 className="font-heading text-lg text-navy">Today&apos;s Calendar</h3>
+      <h3 className="font-heading text-lg text-navy">
+        This Week&apos;s Calendar
+      </h3>
 
       {loading ? (
         <p className="font-body text-sm text-slate mt-3">
-          Loading today&apos;s calendar…
+          Loading this week&apos;s calendar...
         </p>
       ) : errorCode === 'needs_reconnect' ||
         errorCode === 'scope_insufficient' ? (
@@ -91,7 +161,7 @@ function TodaysCalendarSection({
       ) : connected === false ? (
         <div className="mt-3 space-y-2">
           <p className="font-body text-sm text-slate">
-            No calendar events today.
+            Connect Google to see your calendar for the week ahead.
           </p>
           <a
             href="/integrations"
@@ -100,45 +170,67 @@ function TodaysCalendarSection({
             Connect Google Account on Integrations
           </a>
         </div>
-      ) : events.length === 0 ? (
-        <p className="font-body text-sm text-slate mt-3">
-          No calendar events today.
-        </p>
       ) : (
-        <ul className="mt-4 space-y-4">
-          {events.map((event) => {
-            const attendees = attendeeLabel(event.attendees_count)
+        <div className="mt-4 space-y-2">
+          {dayKeys.map((dayKey) => {
+            const events = groupedEvents[dayKey] ?? []
+            const expanded = expandedDays.has(dayKey)
+
             return (
-              <li
-                key={event.id}
-                className="border border-mint rounded-lg p-4 bg-cream/40"
+              <div
+                key={dayKey}
+                className="border border-mint rounded-lg overflow-hidden"
               >
-                <p className="font-label text-xs text-teal uppercase tracking-wide">
-                  {formatEventTimeRange(event.start_time, event.end_time)}
-                </p>
-                <p className="font-body text-navy mt-1">{event.summary}</p>
-                {event.location ? (
-                  <p className="font-body text-sm text-slate mt-1">
-                    {event.location}
-                  </p>
-                ) : null}
-                {attendees ? (
-                  <p className="font-body text-sm text-slate mt-1">
-                    {attendees}
-                  </p>
-                ) : null}
                 <button
                   type="button"
-                  disabled
-                  className="mt-3 font-body text-sm text-slate bg-white border border-mint rounded px-3 py-2 min-h-[44px] opacity-70 cursor-not-allowed"
-                  title="Lead prep linking arrives in Phase 7c"
+                  onClick={() => onToggleDay(dayKey)}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-left bg-cream/40 hover:bg-cream min-h-[44px]"
+                  aria-expanded={expanded}
                 >
-                  Prepare
+                  {expanded ? (
+                    <ChevronDown
+                      className="w-4 h-4 text-navy shrink-0"
+                      aria-hidden
+                    />
+                  ) : (
+                    <ChevronRight
+                      className="w-4 h-4 text-navy shrink-0"
+                      aria-hidden
+                    />
+                  )}
+                  <span className="font-body text-navy flex-1 min-w-0">
+                    {formatDayHeader(dayKey, todayKey)}
+                  </span>
+                  {events.length > 0 ? (
+                    <span className="font-label text-[10px] uppercase tracking-wide text-slate bg-mint/60 px-2 py-0.5 rounded shrink-0">
+                      {eventCountLabel(events.length)}
+                    </span>
+                  ) : null}
                 </button>
-              </li>
+
+                {expanded ? (
+                  <div className="px-4 pb-4 pt-1 border-t border-mint bg-white">
+                    {events.length === 0 ? (
+                      <p className="font-body text-sm text-slate py-2">
+                        No events
+                      </p>
+                    ) : (
+                      <ul className="space-y-3 mt-2">
+                        {events.map((event) => (
+                          <CalendarEventRow
+                            key={event.id}
+                            event={event}
+                            onPrepare={onPrepare}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             )
           })}
-        </ul>
+        </div>
       )}
     </section>
   )
@@ -152,12 +244,24 @@ export default function MorningBrief() {
 
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [googleConnected, setGoogleConnected] = useState<boolean | null>(null)
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([])
+  const [weekEvents, setWeekEvents] = useState<CalendarEvent[]>([])
   const [calendarErrorCode, setCalendarErrorCode] =
     useState<CalendarEventsErrorCode | null>(null)
   const [calendarErrorMessage, setCalendarErrorMessage] = useState<
     string | null
   >(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(
+    () => new Set(weekDayKeysInChicago().slice(0, 1)),
+  )
+  const [selectedEventForPrep, setSelectedEventForPrep] =
+    useState<CalendarEvent | null>(null)
+
+  const dayKeys = useMemo(() => weekDayKeysInChicago(), [])
+  const groupedEvents = useMemo(
+    () => groupEventsByDay(weekEvents),
+    [weekEvents],
+  )
 
   const loadLeads = useCallback(async () => {
     setLeadsLoading(true)
@@ -180,33 +284,35 @@ export default function MorningBrief() {
       const { data: sessionData } = await supabase.auth.getSession()
       const email = sessionData.session?.user?.email
       if (!email) {
+        setUserEmail(null)
         setGoogleConnected(false)
-        setCalendarEvents([])
+        setWeekEvents([])
         return
       }
 
+      setUserEmail(email)
       const connected = await isGoogleConnected(email)
       setGoogleConnected(connected)
       if (!connected) {
-        setCalendarEvents([])
+        setWeekEvents([])
         return
       }
 
-      const result = await getTodayEvents()
+      const result = await getWeekEvents()
       if (!result.ok) {
         setCalendarErrorCode(result.code)
         setCalendarErrorMessage(result.message)
-        setCalendarEvents([])
+        setWeekEvents([])
         return
       }
 
-      setCalendarEvents(result.events)
+      setWeekEvents(result.events)
     } catch (err) {
       setCalendarErrorCode('error')
       setCalendarErrorMessage(
         err instanceof Error ? err.message : 'Failed to load calendar',
       )
-      setCalendarEvents([])
+      setWeekEvents([])
     } finally {
       setCalendarLoading(false)
     }
@@ -222,6 +328,18 @@ export default function MorningBrief() {
 
   function handleActionComplete(leadId: string) {
     setLeads((current) => current.filter((lead) => lead.id !== leadId))
+  }
+
+  function toggleDay(dayKey: string) {
+    setExpandedDays((current) => {
+      const next = new Set(current)
+      if (next.has(dayKey)) {
+        next.delete(dayKey)
+      } else {
+        next.add(dayKey)
+      }
+      return next
+    })
   }
 
   const counterText = includeOlder
@@ -243,10 +361,14 @@ export default function MorningBrief() {
         ) : null}
       </header>
 
-      <TodaysCalendarSection
+      <WeeksCalendarSection
         loading={calendarLoading}
         connected={googleConnected}
-        events={calendarEvents}
+        groupedEvents={groupedEvents}
+        dayKeys={dayKeys}
+        expandedDays={expandedDays}
+        onToggleDay={toggleDay}
+        onPrepare={setSelectedEventForPrep}
         errorCode={calendarErrorCode}
         errorMessage={calendarErrorMessage}
       />
@@ -304,6 +426,15 @@ export default function MorningBrief() {
           ))}
         </div>
       )}
+
+      {selectedEventForPrep && userEmail ? (
+        <EventPreparePanel
+          event={selectedEventForPrep}
+          userEmail={userEmail}
+          isOpen
+          onClose={() => setSelectedEventForPrep(null)}
+        />
+      ) : null}
     </div>
   )
 }
