@@ -250,3 +250,131 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 4. Rollback only after confirming the deploy actually caused it
 
 **Never do:** Roll back as a first response to a production issue. Diagnose first.
+
+---
+
+## ADR-16 — Phase 7a-extended scope: today + 6 days, not calendar week
+
+**Date:** 2026-06-07
+
+**Decision:** Morning Brief week view shows today plus the next six days (seven days total), not a Sun–Sat or Mon–Sun calendar week.
+
+**Layer:** Product / L2
+
+**Context:** Calendar-week boundaries add edge cases (events spanning week lines, timezone at midnight Sunday). Jason's workflow is "what's ahead from today," not "this ISO week."
+
+**Consequence:** `range=week` uses `timeMin=today_start`, `timeMax=today_start + 7 days` in America/Chicago. UI groups by day key with today expanded by default.
+
+**Never do:** Switch to ISO calendar week without explicit user request and a timezone strategy review.
+
+---
+
+## ADR-17 — meeting_notes table: prep notes keyed by user_email + calendar_event_id
+
+**Date:** 2026-06-07
+
+**Decision:** Meeting prep notes persist in `meeting_notes` keyed by `(user_email, calendar_event_id)` with RLS SELECT/INSERT/UPDATE only (no DELETE for authenticated).
+
+**Layer:** Data / L3
+
+**Context:** Prepare panel needs durable notes per calendar event without tying notes to lead rows. One note row per user per Google event id.
+
+**Consequence:** `saveNotesForEvent` upserts on unique constraint. Service role can DELETE for future cleanup. Notes survive panel close and reopen.
+
+**Never do:** Add DELETE policy for authenticated on meeting_notes without an explicit user-facing delete UX.
+
+---
+
+## ADR-18 — research_briefs table: 30-day TTL cache for Anthropic research
+
+**Date:** 2026-06-07
+
+**Decision:** AI attendee research is cached in `research_briefs` keyed by `(user_email, calendar_event_id, attendee_email)` with `expires_at = now() + 30 days`.
+
+**Layer:** Data / L3 / Cost
+
+**Context:** Anthropic web-search calls cost roughly $0.02–0.05 per attendee. Reopening Prepare on the same event must not re-bill.
+
+**Consequence:** `research-attendee` function checks cache before calling Anthropic. Upsert refreshes content and extends expiry on cache miss. Index on `expires_at` supports future TTL cleanup job.
+
+**Never do:** Call a paid Anthropic research endpoint without a server-side cache check first.
+
+---
+
+## ADR-19 — Anthropic claude-sonnet-4-5 over Google People API for attendee research
+
+**Date:** 2026-06-07
+
+**Decision:** Use Anthropic `claude-sonnet-4-5` with `web_search_20250305` for Public Research, not Google People API.
+
+**Layer:** Tech / L4
+
+**Context:** Google People API returns the authenticated user's own contacts, not arbitrary attendee public profiles. Prepare needs public professional info for calendar attendees who may not be in Jason's contact list.
+
+**Consequence:** Server-side `research-attendee` Netlify function calls Anthropic. `ANTHROPIC_API_KEY` lives in Netlify env only.
+
+**Never do:** Assume OAuth contact scopes substitute for public attendee research.
+
+---
+
+## ADR-20 — Hallucination prevention pattern for AI research bullets
+
+**Date:** 2026-06-07
+
+**Decision:** Every research bullet must cite a `source_url`; max 5 bullets per person; uncited bullets show "(source not cited)" in coral; unfindable people return `could_not_verify: true`.
+
+**Layer:** Product / L5 / Safety
+
+**Context:** Real estate prep mistakes from fabricated attendee background are worse than no research. Citations force model and UI to stay factual.
+
+**Consequence:** Prompt requires JSON `{ bullets: [{text, source_url}], could_not_verify }`. UI banner: "Researched from public web sources. Verify before relying on." No personality or motivation inference in prompts.
+
+**Never do:** Show AI research bullets as verified facts without a source link or an explicit could_not_verify state.
+
+---
+
+## ADR-21 — Server-only enforcement for anthropicClient.ts
+
+**Date:** 2026-06-07
+
+**Decision:** `src/lib/anthropicClient.ts` is server-only. File carries `@server-only` header. Browser bundle must not contain API key, SDK, or model strings from that module.
+
+**Layer:** Tech / Security
+
+**Context:** Anthropic API key in a Vite client bundle would be a critical leak. Netlify functions import the module; React components call `/api/research-attendee` only.
+
+**Consequence:** Step 10 build verification greps `dist/assets/*.js` for `ANTHROPIC_API_KEY`, `anthropicClient`, `@anthropic-ai/sdk`, `claude-sonnet-4-5`. All absent from client bundle on 2026-06-07 build.
+
+**Never do:** Import `anthropicClient.ts` from any file under `src/pages`, `src/components`, or client-side services.
+
+---
+
+## ADR-22 — Cost guardrails for Prepare-panel research
+
+**Date:** 2026-06-07
+
+**Decision:** Cache-first lookup before Anthropic call; skip research for attendee emails already matched to leads; cap at 5 non-lead attendees researched per Prepare click.
+
+**Layer:** Product / Cost
+
+**Context:** Events with many attendees could trigger runaway API spend. Matched leads already have AgentPulse context.
+
+**Consequence:** `EventPreparePanel` filters out lead-matched emails before calling `researchAttendee`. Overflow message: "5+ attendees, showing first 5 for cost efficiency."
+
+**Never do:** Research all attendee emails on an event without a per-click cap.
+
+---
+
+## ADR-23 — Range parameter on calendar-events: today (default) or week
+
+**Date:** 2026-06-07
+
+**Decision:** `calendar-events` Netlify function accepts `?range=today` (default, backward compatible) or `?range=week`.
+
+**Layer:** Tech / API
+
+**Context:** Phase 7a callers use today. Phase 7a-extended Morning Brief needs seven-day window without breaking existing behavior.
+
+**Consequence:** Default omitted or `range=today` unchanged from Phase 7a. `range=week` widens `timeMin`/`timeMax` only. Same response shape `{ events: [...] }`.
+
+**Never do:** Remove `range=today` support or change its time bounds when adding new range values.

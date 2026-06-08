@@ -41,3 +41,11 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Rotation is required when any secret appears in chat output, including PowerShell output pasted to chat.
 - Supabase Site URL must be set on every new project — empty Site URL silently breaks auth flows.
 - Diagnose before rollback. Confirm the deploy actually caused the issue before reverting.
+
+## Rules added 2026-06-07
+
+- Server-only files (anthropicClient.ts pattern): `@server-only` header in file. Verify absent from browser bundle via grep on `dist/assets/*.js` for: `ANTHROPIC_API_KEY`, `anthropicClient`, `@anthropic-ai/sdk`, model name strings.
+- Hallucination prevention for AI research: every claim must cite source URL, max 5 bullets per attendee, `could_not_verify` fallback. Mark in UI: "Researched from public web sources. Verify before relying on."
+- Cache layer required for any paid AI API call: TTL via `expires_at` column, cache check before paid call, cost cap via UI-side attendee limit.
+- Two Cursor windows = real risk: glance at workspace name in Cursor sidebar before pasting any prompt. Confirm `pwd` in Step 1 of every session.
+- Browser tab discipline: every UI verification starts with "what URL is in your address bar?" before diagnosing feature visibility.

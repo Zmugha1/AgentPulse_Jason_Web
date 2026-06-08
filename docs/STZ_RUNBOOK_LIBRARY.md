@@ -316,3 +316,89 @@
 
 - Session tokens persist across browser sessions, so old success may mask new failures until logout/incognito
 - The "Invalid credentials" error is misleading when the actual issue is missing Site URL — Supabase reports the symptom, not the root cause
+
+---
+
+## RUN-12 — Enable Google API in GCP project for new OAuth scope
+
+**Task:** Enable a Google Cloud API when OAuth Connect succeeds but the first API call returns 403 `scope_insufficient`.
+
+**Trigger:** Connected Google account, scopes granted in DB, but Calendar (or other) API returns 403 on first fetch.
+
+**Steps:**
+
+1. GCP Console → APIs & Services → Library.
+2. Search for the specific API name (e.g., "Google Calendar API").
+3. Click Enable for project `agentpulse-prod`.
+4. Wait 1–2 minutes for propagation.
+5. AgentPulse Integrations → Disconnect Google Account.
+6. Connect Google Account again (fresh consent with API enabled).
+7. Hard refresh Morning Brief (Ctrl+Shift+R).
+8. Verify events load without 403.
+
+**Expected output:** Calendar events (or target API data) return 200 with event rows.
+
+**Watch out for:** Enabling the API alone is not enough if the user still holds a token from before enable — reconnect refreshes the grant context.
+
+---
+
+## RUN-13 — Magic link recovery for blocked login
+
+**Task:** Restore access when user hits "Invalid credentials" repeatedly and has no in-app password reset.
+
+**Trigger:** Known-good user cannot sign in with password; Forgot Password not available in AgentPulse UI.
+
+**Steps:**
+
+1. Supabase dashboard → Authentication → Users.
+2. Find user by email.
+3. Open user details → Send magic link.
+4. User checks email and clicks magic link.
+5. User lands on production site authenticated.
+6. Optional: set new password from authenticated session if Supabase allows.
+
+**Expected output:** User session active on https://agentpulseweb.netlify.app.
+
+**Watch out for:** Site URL and Redirect URLs must be configured or magic link redirects to localhost.
+
+---
+
+## RUN-14 — Anthropic research cost monitoring
+
+**Task:** Monitor spend from Prepare-panel Public Research (claude-sonnet-4-5 + web search).
+
+**Trigger:** After shipping Phase 7a-extended AI research; periodic check or unexpected bill concern.
+
+**Steps:**
+
+1. Open https://console.anthropic.com → Plans & Billing → Usage.
+2. Note daily/weekly spend trend.
+3. Expect roughly $0.02–0.05 per attendee per cache miss (first Prepare open per event/attendee).
+4. Reopen same event should hit `research_briefs` cache (no new Anthropic charge).
+5. If spend spikes, check Netlify function logs for repeated `cache_miss` on same keys (cache layer broken).
+
+**Expected output:** Spend proportional to unique attendee research calls, not every panel open.
+
+**Watch out for:** Events with 5+ attendees still cap at 5 research calls per Prepare click by design.
+
+---
+
+## RUN-15 — Deploy Phase changes to production
+
+**Task:** Ship a committed feature from local main to live Netlify site.
+
+**Trigger:** Cursor reports build pass and commit hash; Zubia approves push.
+
+**Steps:**
+
+1. Cursor reports commit hash and file list.
+2. Zubia says "approve push."
+3. `git push origin main`
+4. Wait 2–3 minutes for Netlify auto-deploy.
+5. Confirm new bundle hash in production `index.html` (or specific UI string grep).
+6. Hard refresh production (Ctrl+Shift+R).
+7. Verify new feature visible (e.g., "This Week's Calendar", "Public Research").
+
+**Expected output:** https://agentpulseweb.netlify.app serves new JS bundle; feature works end-to-end.
+
+**Watch out for:** Browser cache and wrong tab (localhost vs production) mimic "deploy failed" — confirm URL before debugging code.

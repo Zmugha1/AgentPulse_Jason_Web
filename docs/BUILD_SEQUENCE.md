@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-07
 Owner: Dr. Zubia Mughal
-Status: Phase 7a active. Phases below queued in priority order.
+Status: Phase 7a and 7a-extended complete. Password reset URGENT before Tuesday demo.
 
 ## Why this file exists
 
@@ -12,19 +12,38 @@ Prevents losing roadmap across cold starts.
 
 ## Build priority (in order)
 
+### URGENT — Password reset UI for Jason (before Tuesday)
+- Time: 2-3 hours
+- Prereqs: None
+- Output: Forgot Password link on login, reset request page, reset 
+  confirm page, email template wired
+- Status: Queued for next session
+- Why first: Jason has no self-service recovery if password fails. 
+  Magic link via Supabase admin is not sustainable for Tuesday demo.
+
 ### Phase 7a — Calendar events in Morning Brief
 - Time: 4-6 hours
 - Prereqs: OAuth shipped (commit 941fc73, 2026-06-05)
 - Output: Today's connected Google Calendar events shown in Morning 
   Brief with prep buttons
-- Status: ACTIVE — being built 2026-06-07
+- Status: COMPLETE — shipped 2026-06-07 (commit 6a1bc14)
 - Why first: Validates OAuth investment with immediate user-facing 
   value. Visible win for Jason on Tuesday demo.
 
+### Phase 7a-extended — Week calendar view + Prepare panel
+- Time: 6-8 hours (includes AI research)
+- Prereqs: Phase 7a complete
+- Output: This Week's Calendar (today + 6 days), Prepare panel with 
+  lead context, meeting notes, Public Research via Anthropic web 
+  search
+- Status: COMPLETE — shipped 2026-06-07 (commit 47a28e8)
+- Note: Phase 7d AI research brief delivered early inside Prepare 
+  panel (not full email compose).
+
 ### Phase 7b — Gmail lead detection for Realtor.com and Zillow
 - Time: 6-8 hours
-- Prereqs: Phase 7a complete (proves out token decryption pattern 
-  in production)
+- Prereqs: Phase 7a-extended complete (token decryption + calendar 
+  flow proven in production)
 - Output: AgentPulse scans connected Gmail for emails from 
   connect@realtor.com, noreply@zillow.com, etc. Auto-parses lead 
   name, contact info, property interest. Creates lead rows.
@@ -34,17 +53,20 @@ Prevents losing roadmap across cold starts.
 
 ### Phase 7c — Calendar event to lead matching
 - Time: 2-3 hours
-- Prereqs: Phase 7a complete (calendar events flowing)
-- Output: Calendar events link to lead profiles when attendee email 
-  matches a lead. Click a meeting → see lead context. Click a lead 
-  → see scheduled meetings.
-- Status: Queued
-- Why third: Small follow-on to 7a. High user value for daily 
-  workflow.
+- Prereqs: Phase 7a-extended complete (week view + Prepare panel 
+  shipped)
+- Output: Bidirectional calendar ↔ lead linking. Prepare panel 
+  already shows lead context when attendee email matches (partial). 
+  Remaining: lead profile shows upcoming meetings for that lead.
+- Status: Queued (partial attendee matching done in 7a-extended)
+- Why third: Small follow-on to 7a-extended. High user value for 
+  daily workflow.
 
 ### Phase 7d — Email composing
 - Time: 4-6 hours
-- Prereqs: Architecture decision required before build can start.
+- Prereqs: Architecture decision required before build can start. 
+  AI attendee research brief already shipped in 7a-extended Prepare 
+  panel.
 - Architecture decision needed:
     Option A: Add gmail.send scope to existing OAuth (1-3 week 
       Google verification timeline for restricted scope)
@@ -111,9 +133,9 @@ Step 4: Market Intel UI update (Cursor, 1-2 hours)
 
 ## Suggested calendar
 
-Sunday 6/7: Phase 7a today
-Monday 6/8: Verify 7a + start Phase 7b
-Tuesday 6/9: Jason demo + finish Phase 7b
+Sunday 6/7: Phase 7a + 7a-extended shipped
+Monday 6/8: Password reset UI + start Phase 7b if time
+Tuesday 6/9: Jason demo
 Wednesday 6/10: Phase 7c + 8a (small builds, pair OK)
 Thursday or Friday 6/12-6/13: Phase 7d (after architecture decision)
 Following week: Phase 8b (GA4) when ready

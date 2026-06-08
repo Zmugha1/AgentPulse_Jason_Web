@@ -214,3 +214,83 @@ c) Walk the user through a generation step that captures the value directly into
 `Add-Content -Path .env.local -Value "TOKEN_ENCRYPTION_KEY=$key"`
 
 **Commit:** N/A (file cleanup)
+
+---
+
+## INC-12
+
+**Date:** 2026-06-07
+
+**What broke:** Zubia pasted Step 9 instructions into the Dr-Raj_Intel Cursor session by accident. Dr Raj Intel reported back about HR keyword scan results (CDP verification, 237 HR articles) instead of AgentPulse work.
+
+**Root cause:** Two Cursor windows open; no workspace identification check before pasting a long prompt.
+
+**Fix applied:** Caught when response content was clearly the wrong project. Prompt redirected to correct AgentPulse window.
+
+**Prevention rule:** Glance at Cursor sidebar workspace name before pasting any prompt. Confirm `pwd` in Step 1 of every session.
+
+**Commit:** N/A
+
+---
+
+## INC-13
+
+**Date:** 2026-06-07
+
+**What broke:** Cursor applied `meeting_notes` migration via `supabase db push` in the same turn it wrote the SQL, despite prompt requiring show-SQL-first approval.
+
+**Root cause:** Approval gate language in prompt was not enforced by agent; agent treated "proceed with Step 2" as permission to apply immediately.
+
+**Fix applied:** User caught the skip. Subsequent `research_briefs` migration held until explicit "approve migration." Schema verified after apply.
+
+**Prevention rule:** Prompts must say "show SQL FIRST, do NOT run db push until approve migration." Agent must stop after showing SQL.
+
+**Commit:** N/A (migration applied; code in 47a28e8)
+
+---
+
+## INC-14
+
+**Date:** 2026-06-07
+
+**What broke:** Zubia could not tell if Morning Brief showed production or localhost. Production still displayed "Today's Calendar" (Phase 7a) while localhost had "This Week's Calendar" (Phase 7a-extended uncommitted). Significant time spent diagnosing "code not deployed" when cause was browser tab / URL confusion.
+
+**Root cause:** Same site appearance across tabs; uncommitted local changes vs deployed commit `6a1bc14`; no habit of checking address bar first.
+
+**Fix applied:** Disk and dev-server curl confirmed week-view code present locally. Production updated after `47a28e8` push. Diagnostic protocol: ask "what URL is in your address bar?" first.
+
+**Prevention rule:** Every UI verification starts with confirming the URL (`localhost:8888` vs `agentpulseweb.netlify.app`) and hard refresh before troubleshooting missing features.
+
+**Commit:** 47a28e8 (production fix)
+
+---
+
+## INC-15
+
+**Date:** 2026-06-07
+
+**What broke:** Local `scripts/test-google-token-refresh.ts` failed with `invalid_client`. Production OAuth and calendar worked.
+
+**Root cause:** `.env.local` `GOOGLE_OAUTH_CLIENT_SECRET` stale after 2026-06-05 rotation. Netlify had the new secret; local did not.
+
+**Fix applied:** Skipped local refresh test; verified token path in production during Phase 7a live UI test.
+
+**Prevention rule:** On OAuth secret rotation, update Netlify AND `.env.local` in the same session, then run local refresh test immediately to confirm sync.
+
+**Commit:** N/A
+
+---
+
+## INC-16
+
+**Date:** 2026-06-07
+
+**What broke:** Zubia hit "Invalid credentials" multiple times, requiring Supabase magic link recovery from admin panel each time.
+
+**Root cause:** AgentPulse has no Forgot Password UI. Password mistype or drift has no self-service recovery path in the app.
+
+**Fix applied:** Magic link from Supabase Authentication → Users → Send magic link. Session restored manually each time.
+
+**Prevention rule:** Build Forgot Password flow before Jason's Tuesday demo. Production-blocking for a non-technical user who will not use Supabase admin.
+
+**Commit:** N/A (open item)

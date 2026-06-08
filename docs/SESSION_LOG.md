@@ -378,3 +378,47 @@ Configure website webhooks (Zubia, ~15 min) if not done. Phase 6 Part 2: email J
 **Blockers or open items:**
 
 - None. Production stable. OAuth shipped. Encryption verified.
+
+## Session 2026-06-07
+
+Commits pushed this session:
+
+- `6a1bc14` — feat: phase 7a, today's calendar in morning brief
+- `47a28e8` — feat: phase 7a-extended + ai research brief on prepare panel
+- `df395bf` — spec: session capture 2026-06-05 (was unpushed, finally went up with 6a1bc14)
+
+Phases shipped:
+
+- Phase 7a — Today's Calendar in Morning Brief (live)
+- Phase 7a-extended — Week view + Prepare panel with AI research (live)
+- Phase 7d AI research delivered ahead of schedule as part of Prepare panel
+
+Major build moments:
+
+- Google Calendar API: required enabling in GCP project before OAuth scope would actually work (mentioned 6/5 but not done until today)
+- Anthropic web search integration: claude-sonnet-4-5 with web_search_20250305 tool, strict citation requirements
+- meeting_notes + research_briefs tables added to live Supabase
+
+Verified live on production:
+
+- Calendar week view with 7 days
+- Prepare button opens panel
+- Public Research returns cited bullets from real public sources
+- Cache layer (30-day TTL on research_briefs)
+
+ADRs added: 8
+
+Incidents resolved: 5
+
+Runbooks added: 4
+
+Next session should start with: Password reset flow for Jason before Tuesday demo. Followed by Market Intel + GA4 if time permits.
+
+Blockers and open items:
+
+- No Forgot Password UI in AgentPulse (Jason will hit this)
+- Local .env.local GOOGLE_OAUTH_CLIENT_SECRET still out of sync with Netlify
+- UI polish on Prepare panel deferred
+- Save Brief / Email Brief functionality deferred
+- Market Intel website traffic deferred
+- Apple Maps location claim still pending
