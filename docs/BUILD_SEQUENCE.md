@@ -1,8 +1,8 @@
 # AgentPulse Build Sequence — Phase 7 and beyond
 
-Last updated: 2026-06-07
+Last updated: 2026-06-08
 Owner: Dr. Zubia Mughal
-Status: Phase 7a and 7a-extended complete. Password reset URGENT before Tuesday demo.
+Status: Phase 7a, 7a-extended, and password reset complete. Next: Market Intel / GA4 (2026-06-10).
 
 ## Why this file exists
 
@@ -12,12 +12,22 @@ Prevents losing roadmap across cold starts.
 
 ## Build priority (in order)
 
+### NEXT UP — Market Intel / GA4 / Search Console integration
+- Planned start: 2026-06-10 (Wednesday, post-Jason demo)
+- Time: 3-4 hours (GA4) + Search Console if scoped
+- Prereqs: Google Cloud service account setup (Zubia, 20 min)
+- Output: Real visitor data on Market Intel page replacing 
+  placeholder. Sessions, sources, pages, lead form submissions.
+- Status: Queued — do not start before Jason demo (Tuesday 6/9)
+- Why now: Password reset shipped. Website traffic is next deferred 
+  item from prior sessions.
+
 ### URGENT — Password reset UI for Jason (before Tuesday)
 - Time: 2-3 hours
 - Prereqs: None
 - Output: Forgot Password link on login, reset request page, reset 
   confirm page, email template wired
-- Status: Queued for next session
+- Status: COMPLETE — shipped 2026-06-08 (commit a8e77d8)
 - Why first: Jason has no self-service recovery if password fails. 
   Magic link via Supabase admin is not sustainable for Tuesday demo.
 
@@ -94,7 +104,8 @@ Prevents losing roadmap across cold starts.
 - Prereqs: Google Cloud service account setup (Zubia, 20 min)
 - Output: Real visitor data on Market Intel page replacing 
   placeholder. Sessions, sources, pages, lead form submissions.
-- Status: Queued. Service account not yet created.
+- Status: Queued for 2026-06-10 (see NEXT UP at top of queue). 
+  Service account not yet created.
 - Why sixth: Lower urgency. Site doesn't have heavy traffic yet. 
   Useful for proving website value to Jason once it grows.
 
@@ -134,11 +145,11 @@ Step 4: Market Intel UI update (Cursor, 1-2 hours)
 ## Suggested calendar
 
 Sunday 6/7: Phase 7a + 7a-extended shipped
-Monday 6/8: Password reset UI + start Phase 7b if time
+Monday 6/8: Password reset UI shipped (a8e77d8)
 Tuesday 6/9: Jason demo
-Wednesday 6/10: Phase 7c + 8a (small builds, pair OK)
+Wednesday 6/10: Market Intel / GA4 + Search Console (Phase 8b)
 Thursday or Friday 6/12-6/13: Phase 7d (after architecture decision)
-Following week: Phase 8b (GA4) when ready
+Following week: Phase 7b Gmail lead detection, Phase 7c calendar matching
 
 ## Rules carried forward from prior sessions
 

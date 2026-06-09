@@ -402,3 +402,31 @@
 **Expected output:** https://agentpulseweb.netlify.app serves new JS bundle; feature works end-to-end.
 
 **Watch out for:** Browser cache and wrong tab (localhost vs production) mimic "deploy failed" — confirm URL before debugging code.
+
+---
+
+## RUN-16 — Password reset for user (production)
+
+**Task:** Walk a user through self-service password reset when they cannot sign in.
+
+**Trigger:** User reports "Invalid credentials" or forgot password.
+
+**Steps:**
+
+1. Direct user to https://agentpulseweb.netlify.app/login
+2. User clicks "Forgot password?" link below Sign In button
+3. User enters email on /forgot-password page
+4. User receives email from Supabase (check spam)
+5. User clicks reset link, redirects to /reset-password
+6. User sets new password (min 8 chars, must match)
+7. Auto-redirects to /login after success
+8. User signs in with new password
+
+**Expected output:** User logged in with new password.
+
+**Watch out for:**
+
+- Email landing in spam folder (Gmail Promotions tab)
+- Reset link expires after a window — re-request if needed
+- 3-second timeout on /reset-password if recovery session not detected (shows "expired link" UI)
+

@@ -378,3 +378,84 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 **Consequence:** Default omitted or `range=today` unchanged from Phase 7a. `range=week` widens `timeMin`/`timeMax` only. Same response shape `{ events: [...] }`.
 
 **Never do:** Remove `range=today` support or change its time bounds when adding new range values.
+
+---
+
+## ADR-24 — Password reset uses Supabase auth.resetPasswordForEmail with redirectTo using window.location.origin
+
+**Date:** 2026-06-08
+
+**Decision:** Password reset request calls `supabase.auth.resetPasswordForEmail` with `redirectTo: \`${window.location.origin}/reset-password\`` (works in local and production without hardcoding).
+
+**Layer:** Tech / Auth
+
+**Context:** Jason demo requires self-service password recovery. Hardcoded production URLs break local dev; hardcoded localhost breaks production email links.
+
+**Consequence:** Forgot password page works on localhost:8888, localhost:5173, and https://agentpulseweb.netlify.app without env-specific redirect configuration in the client.
+
+**Never do:** Hardcode agentpulseweb.netlify.app in reset redirect URLs.
+
+---
+
+## ADR-25 — Enumeration-safe success message on forgot password
+
+**Date:** 2026-06-08
+
+**Decision:** Same "if account exists" success text shown regardless of whether the email is in the database.
+
+**Layer:** Security / Auth
+
+**Context:** Returning different messages for known vs unknown emails enables user enumeration attacks.
+
+**Consequence:** Forgot password page always shows: "If an account exists for that email, a reset link is on its way. Check your inbox and spam folder." Coral error only for malformed email or network failure.
+
+**Never do:** Reveal whether an email address is registered in AgentPulse.
+
+---
+
+## ADR-26 — Reset confirm page discriminates recovery sessions via user.recovery_sent_at
+
+**Date:** 2026-06-08
+
+**Decision:** Reset password page validates recovery session using `session.user.recovery_sent_at`, not by parsing URL hash tokens manually.
+
+**Layer:** Tech / Auth
+
+**Context:** Supabase appends `#access_token=...&type=recovery` to reset links. Supabase JS client detects these and creates a temporary session via `detectSessionInUrl` / `onAuthStateChange`.
+
+**Consequence:** Page waits up to 3 seconds for Supabase to establish recovery session, then shows password form only when `recovery_sent_at` is present. Expired-link UI if not detected.
+
+**Never do:** Parse or validate recovery tokens from the URL fragment in application code.
+
+---
+
+## ADR-27 — Reset password redirect uses window.location.href to clear recovery session
+
+**Date:** 2026-06-08
+
+**Decision:** After successful password update, redirect to `/login` via `window.location.href = '/login'` (not react-router navigate).
+
+**Layer:** Tech / Auth
+
+**Context:** Recovery sessions are temporary. Client-side navigation may leave recovery session state in memory.
+
+**Consequence:** Full page navigation to login clears recovery session state completely before user signs in with new password.
+
+**Never do:** Use in-app navigation for post-reset redirect without clearing auth state.
+
+---
+
+## ADR-28 — App.tsx pathname-check routing extended for auth pages
+
+**Date:** 2026-06-08
+
+**Decision:** New pages `/forgot-password` and `/reset-password` use existing App.tsx pathname-check routing pattern. No react-router introduction.
+
+**Layer:** Tech / Frontend
+
+**Context:** Project has no react-router dependency. Integrations tab and auth routes already use `window.location.pathname` guards in App.tsx.
+
+**Consequence:** Reset and forgot password pages render via early return in App.tsx before authenticated shell or login form. Netlify SPA redirect (`/*` → index.html) serves both routes.
+
+**Never do:** Introduce react-router for one or two auth pages when pathname checks already work.
+

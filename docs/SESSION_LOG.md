@@ -422,3 +422,46 @@ Blockers and open items:
 - Save Brief / Email Brief functionality deferred
 - Market Intel website traffic deferred
 - Apple Maps location claim still pending
+
+## Session 2026-06-08
+
+Commits pushed this session:
+
+- `a8e77d8` — feat: password reset flow with forgot-password and reset-password pages
+
+Phases shipped:
+
+- Password reset flow (forgot password page, reset password page, login link)
+- Verified end-to-end on production by Zubia
+
+Major decisions:
+
+- Used Supabase native resetPasswordForEmail (not custom)
+- Pathname-check routing extended for two new pages
+- Enumeration-safe success messaging implemented
+
+Verified live on production:
+
+- /forgot-password page loads
+- /reset-password page handles recovery session correctly
+- "Forgot password?" link on login page works
+- Email delivery via Supabase confirmed working
+- End-to-end reset flow tested by Zubia (password successfully reset and used to sign in)
+
+Jason handover email sent: yes (sent to jason@thesuepattigroup.com)
+
+ADRs added: 5
+
+Incidents resolved: 0 (clean session)
+
+Runbooks added: 1
+
+Next session should start with: Market Intel website capture (Search Console + GA4 integration). Wednesday 2026-06-10 after Jason demo, not before.
+
+Blockers and open items:
+
+- Local .env.local GOOGLE_OAUTH_CLIENT_SECRET still out of sync (low priority, doesn't block production)
+- UI polish on Prepare panel (deferred)
+- Save Brief / Email Brief features (deferred)
+- Market Intel website traffic (queued for Wednesday)
+

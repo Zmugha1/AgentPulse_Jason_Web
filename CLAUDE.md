@@ -49,3 +49,10 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Cache layer required for any paid AI API call: TTL via `expires_at` column, cache check before paid call, cost cap via UI-side attendee limit.
 - Two Cursor windows = real risk: glance at workspace name in Cursor sidebar before pasting any prompt. Confirm `pwd` in Step 1 of every session.
 - Browser tab discipline: every UI verification starts with "what URL is in your address bar?" before diagnosing feature visibility.
+
+## Rules added 2026-06-08
+
+- Password reset flow always uses window.location.origin for redirect URLs (no hardcoded domains)
+- Enumeration-safe auth messages: never reveal whether an email exists in the system
+- Recovery session check via user.recovery_sent_at (Supabase convention), not URL parsing
+- New pages follow App.tsx pathname-check pattern, no react-router introduction
