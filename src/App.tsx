@@ -8,6 +8,8 @@ import LeadIntelligence from './pages/LeadIntelligence'
 import MarketIntel from './pages/MarketIntel'
 import MorningBrief from './pages/MorningBrief'
 import MyAgentPulse from './pages/MyAgentPulse'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 function App() {
   const [email, setEmail] = useState('')
@@ -53,6 +55,14 @@ function App() {
       document.body.style.overflow = ''
     }
   }, [sidebarOpen])
+
+  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  if (path === '/reset-password') {
+    return <ResetPassword />
+  }
+  if (path === '/forgot-password') {
+    return <ForgotPassword />
+  }
 
   async function handleSignIn(e: FormEvent) {
     e.preventDefault()
@@ -169,6 +179,14 @@ function App() {
           >
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
+          <p className="font-body text-sm text-center">
+            <a
+              href="/forgot-password"
+              className="text-slate hover:text-teal transition-colors"
+            >
+              Forgot password?
+            </a>
+          </p>
         </form>
       </div>
     </div>
