@@ -3,6 +3,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions."poll-website-forms"]
+  schedule = "*/15 * * * *"
+
 [[redirects]]
   from = "/api/website-lead"
   to = "/.netlify/functions/website-lead"
