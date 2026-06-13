@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../lib/getSupabaseClient'
+import { supabase } from '../lib/supabase'
 import type {
   MarketIntelSummary,
   PoolHeadlineMetrics,
@@ -309,4 +310,185 @@ export async function getRecencyBuckets(
       count: buckets.get(key) ?? 0,
     }),
   )
+}
+
+export type MetricsRange = 'last_7_days' | 'last_30_days'
+
+export type MarketIntelErrorCode =
+  | 'unauthenticated'
+  | 'invalid_request'
+  | 'scope_insufficient'
+  | 'property_not_found'
+  | 'internal_error'
+
+export type WebsiteTopSourceRow = {
+  source: string
+  sessions: number
+}
+
+export type WebsiteTopPageRow = {
+  page_title: string
+  page_path: string
+  views: number
+}
+
+export type MarketIntelResult = {
+  range: MetricsRange
+  sessions: number
+  users: number
+  top_sources: WebsiteTopSourceRow[]
+  top_pages: WebsiteTopPageRow[]
+  lead_events: number
+  lead_conversion_rate: number
+  fetched_at: string
+  cached: boolean
+  error?: MarketIntelErrorCode
+}
+
+function emptyWebsiteMetricsResult(
+  range: MetricsRange,
+  error: MarketIntelErrorCode,
+): MarketIntelResult {
+  return {
+    range,
+    sessions: 0,
+    users: 0,
+    top_sources: [],
+    top_pages: [],
+    lead_events: 0,
+    lead_conversion_rate: 0,
+    fetched_at: '',
+    cached: false,
+    error,
+  }
+}
+
+async function getWebsiteMetricsAccessToken(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getSession()
+  if (error || !data.session?.access_token) {
+    return null
+  }
+  return data.session.access_token
+}
+
+function isMetricsRange(value: unknown): value is MetricsRange {
+  return value === 'last_7_days' || value === 'last_30_days'
+}
+
+function normalizeTopSources(raw: unknown): WebsiteTopSourceRow[] {
+  if (!Array.isArray(raw)) return []
+  const rows: WebsiteTopSourceRow[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as { source?: unknown; sessions?: unknown }
+    if (typeof row.source !== 'string' || !row.source.trim()) continue
+    const sessions = Number(row.sessions)
+    rows.push({
+      source: row.source.trim(),
+      sessions: Number.isFinite(sessions) ? sessions : 0,
+    })
+  }
+  return rows
+}
+
+function normalizeTopPages(raw: unknown): WebsiteTopPageRow[] {
+  if (!Array.isArray(raw)) return []
+  const rows: WebsiteTopPageRow[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as {
+      page_title?: unknown
+      page_path?: unknown
+      views?: unknown
+    }
+    if (typeof row.page_title !== 'string' || !row.page_title.trim()) continue
+    if (typeof row.page_path !== 'string' || !row.page_path.trim()) continue
+    const views = Number(row.views)
+    rows.push({
+      page_title: row.page_title.trim(),
+      page_path: row.page_path.trim(),
+      views: Number.isFinite(views) ? views : 0,
+    })
+  }
+  return rows
+}
+
+function normalizeWebsiteMetricsResponse(
+  body: Record<string, unknown>,
+  range: MetricsRange,
+): MarketIntelResult {
+  const sessions = Number(body.sessions)
+  const users = Number(body.users)
+  const lead_events = Number(body.lead_events)
+  const lead_conversion_rate = Number(body.lead_conversion_rate)
+
+  return {
+    range: isMetricsRange(body.range) ? body.range : range,
+    sessions: Number.isFinite(sessions) ? sessions : 0,
+    users: Number.isFinite(users) ? users : 0,
+    top_sources: normalizeTopSources(body.top_sources),
+    top_pages: normalizeTopPages(body.top_pages),
+    lead_events: Number.isFinite(lead_events) ? lead_events : 0,
+    lead_conversion_rate: Number.isFinite(lead_conversion_rate)
+      ? lead_conversion_rate
+      : 0,
+    fetched_at:
+      typeof body.fetched_at === 'string' ? body.fetched_at : new Date().toISOString(),
+    cached: Boolean(body.cached),
+  }
+}
+
+export async function fetchWebsiteMetrics(
+  range: MetricsRange,
+): Promise<MarketIntelResult> {
+  if (!isMetricsRange(range)) {
+    return emptyWebsiteMetricsResult('last_7_days', 'invalid_request')
+  }
+
+  const token = await getWebsiteMetricsAccessToken()
+  if (!token) {
+    return emptyWebsiteMetricsResult(range, 'unauthenticated')
+  }
+
+  try {
+    const res = await fetch('/api/fetch-website-metrics', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ range }),
+    })
+
+    let body: Record<string, unknown> = {}
+    try {
+      body = (await res.json()) as Record<string, unknown>
+    } catch {
+      body = {}
+    }
+
+    if (res.status === 401) {
+      return emptyWebsiteMetricsResult(range, 'unauthenticated')
+    }
+
+    if (res.status === 400) {
+      return emptyWebsiteMetricsResult(range, 'invalid_request')
+    }
+
+    if (res.status === 403) {
+      return emptyWebsiteMetricsResult(range, 'scope_insufficient')
+    }
+
+    if (res.status === 404) {
+      return emptyWebsiteMetricsResult(range, 'property_not_found')
+    }
+
+    if (!res.ok) {
+      return emptyWebsiteMetricsResult(range, 'internal_error')
+    }
+
+    return normalizeWebsiteMetricsResponse(body, range)
+  } catch {
+    return emptyWebsiteMetricsResult(range, 'internal_error')
+  }
 }

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
+    "@google-analytics/data": "^6.1.0",
     "@supabase/supabase-js": "^2.106.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
