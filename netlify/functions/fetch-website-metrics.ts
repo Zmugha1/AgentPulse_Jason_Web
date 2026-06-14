@@ -20,6 +20,8 @@ const ANALYTICS_READONLY_SCOPE =
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 
+const LEAD_FORM_NAMES = ['chatbot-lead', 'seller-valuation'] as const
+
 type MetricsRange = 'last_7_days' | 'last_30_days'
 
 type MetricsRequestBody = {
@@ -179,6 +181,30 @@ function mapGaError(err: unknown): { statusCode: number; code: string } | null {
   return null
 }
 
+function submissionCutoffIso(range: MetricsRange): string {
+  const days = range === 'last_30_days' ? 30 : 7
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+async function countRealWebsiteLeads(range: MetricsRange): Promise<number> {
+  const supabase = getServiceSupabase()
+  const cutoffIso = submissionCutoffIso(range)
+
+  const { count, error } = await supabase
+    .from('website_lead_submissions')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'imported')
+    .in('netlify_form_name', [...LEAD_FORM_NAMES])
+    .gte('submission_created_at', cutoffIso)
+
+  if (error) {
+    safeLog('lead_count_query_failed', { reason: 'db_error' })
+    return 0
+  }
+
+  return count ?? 0
+}
+
 async function hasAnalyticsScope(userEmail: string): Promise<boolean> {
   const { data, error } = await getServiceSupabase()
     .from('google_oauth_tokens')
@@ -201,7 +227,13 @@ async function fetchGa4Metrics(
   client: BetaAnalyticsDataClient,
   range: MetricsRange,
 ): Promise<
-  | { ok: true; metrics: Omit<MetricsResponse, 'range' | 'fetched_at' | 'cached'> }
+  | {
+      ok: true
+      metrics: Omit<
+        MetricsResponse,
+        'range' | 'fetched_at' | 'cached' | 'lead_events' | 'lead_conversion_rate'
+      >
+    }
   | { ok: false; statusCode: number; code: string }
 > {
   const dateRanges = [dateRangeForMetrics(range)]
@@ -212,21 +244,6 @@ async function fetchGa4Metrics(
       property,
       dateRanges,
       metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
-    })
-
-    const [leadResponse] = await client.runReport({
-      property,
-      dateRanges,
-      metrics: [{ name: 'eventCount' }],
-      dimensionFilter: {
-        filter: {
-          fieldName: 'eventName',
-          stringFilter: {
-            matchType: 'EXACT',
-            value: 'generate_lead',
-          },
-        },
-      },
     })
 
     const [sourcesResponse] = await client.runReport({
@@ -249,14 +266,10 @@ async function fetchGa4Metrics(
 
     const sessions = parseMetricInt(summaryResponse, 0)
     const users = parseMetricInt(summaryResponse, 1)
-    const lead_events = parseMetricInt(leadResponse, 0)
-    const lead_conversion_rate =
-      sessions > 0 ? (lead_events / sessions) * 100 : 0
 
     safeLog('ga4_fetch_succeeded', {
       sessions,
       users,
-      lead_events,
       top_source_count: sourcesResponse.rows?.length ?? 0,
       top_page_count: pagesResponse.rows?.length ?? 0,
     })
@@ -268,8 +281,6 @@ async function fetchGa4Metrics(
         users,
         top_sources: parseTopSources(sourcesResponse),
         top_pages: parseTopPages(pagesResponse),
-        lead_events,
-        lead_conversion_rate,
       },
     }
   } catch (err) {
@@ -364,9 +375,17 @@ export const handler: Handler = async (event) => {
         return json(result.statusCode, { code: result.code })
       }
 
+      const lead_events = await countRealWebsiteLeads(range)
+      const lead_conversion_rate =
+        result.metrics.sessions > 0
+          ? (lead_events / result.metrics.sessions) * 100
+          : 0
+
       const response: MetricsResponse = {
         range,
         ...result.metrics,
+        lead_events,
+        lead_conversion_rate,
         fetched_at: new Date().toISOString(),
         cached: false,
       }

@@ -97,6 +97,11 @@ function formatMinutesAgo(iso: string): string {
   return `${minutes} minutes ago`
 }
 
+function truncatePageTitle(title: string, maxLength = 50): string {
+  if (title.length <= maxLength) return title
+  return `${title.slice(0, maxLength - 3)}...`
+}
+
 function WebsiteActivitySkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -130,7 +135,7 @@ function WebsiteMetricCard({
 }
 
 function WebsiteActivitySection() {
-  const [range, setRange] = useState<MetricsRange>('last_7_days')
+  const [range, setRange] = useState<MetricsRange>('last_30_days')
   const [loading, setLoading] = useState(true)
   const [metrics, setMetrics] = useState<MarketIntelResult | null>(null)
 
@@ -171,7 +176,7 @@ function WebsiteActivitySection() {
       ? ((topSource.sessions / metrics.sessions) * 100).toFixed(1)
       : null
 
-  const topPages = (metrics?.top_pages ?? []).slice(0, 3)
+  const topPages = (metrics?.top_pages ?? []).slice(0, 5)
 
   return (
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
@@ -303,8 +308,8 @@ function WebsiteActivitySection() {
                         className="flex items-start justify-between gap-3"
                       >
                         <div className="min-w-0">
-                          <p className="font-body text-sm text-navy truncate">
-                            {page.page_title}
+                          <p className="font-body text-sm text-navy">
+                            {truncatePageTitle(page.page_title)}
                           </p>
                           <p className="font-label text-[10px] text-slate truncate">
                             {page.page_path}
@@ -337,14 +342,25 @@ function WebsiteActivitySection() {
                     <p className="font-body text-sm text-navy mt-1">
                       Lead Conversion Rate
                     </p>
-                    <p className="font-body text-xs text-slate mt-1">
-                      {formatCount(metrics!.lead_events)} leads from{' '}
+                    <p
+                      className={`font-body text-xs mt-1 ${
+                        metrics!.lead_events > 0
+                          ? 'text-[#3A7D5C]'
+                          : 'text-slate'
+                      }`}
+                    >
+                      {formatCount(metrics!.lead_events)} leads captured from{' '}
                       {formatCount(metrics!.sessions)} sessions
                     </p>
                   </>
                 )}
               </WebsiteMetricCard>
             </div>
+
+            <p className="font-label text-xs text-slate mt-3 leading-relaxed">
+              Conversion rate counts real form submissions (chatbot + seller
+              valuation), not newsletter signups.
+            </p>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-body text-xs text-slate">
