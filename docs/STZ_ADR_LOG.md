@@ -459,3 +459,99 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 
 **Never do:** Introduce react-router for one or two auth pages when pathname checks already work.
 
+---
+
+## ADR — Service account auth blocked by org policy
+
+**Date:** 2026-06-13
+
+**Decision:** Use OAuth instead of service account JSON for GA4 access.
+
+**Layer:** Tech
+
+**Context:** Org policy `iam.managed.disableServiceAccountKeyCreation` blocks creating downloadable JSON keys for service accounts in agentpulse-prod project.
+
+**Consequence:** GA4 reads happen via existing user OAuth token. Each user must connect their own Google account with analytics permission. Reuses calendar OAuth pattern.
+
+**Never do:** Try to download service account JSON keys from this org — will fail.
+
+---
+
+## ADR — Lead conversion rate uses Supabase real submissions not GA4 events
+
+**Date:** 2026-06-13
+
+**Decision:** Calculate `lead_conversion_rate` from `website_lead_submissions` table, not from GA4 `generate_lead` event count.
+
+**Layer:** L5 Evaluation
+
+**Context:** GA4 `generate_lead` event was either not firing or not being received. We have a more reliable source — the Phase 6 poller writes real form submissions to `website_lead_submissions` in Supabase. Newsletter signups excluded from lead count by design.
+
+**Consequence:** Lead conversion rate reflects actual captured leads, not telemetry events. Decoupled from website-side GA4 instrumentation quality. Cache must be wiped after this change.
+
+**Never do:** Mix server-truth metrics with client-side event telemetry in same calculation.
+
+---
+
+## ADR — Market Intel default range is last_30_days
+
+**Date:** 2026-06-13
+
+**Decision:** Default selected range pill is `last_30_days`, not `last_7_days`.
+
+**Layer:** L1 Prompts (UI default)
+
+**Context:** 7-day data window often shows 0 leads given current real estate funnel velocity. 30-day window shows real conversion activity.
+
+**Consequence:** First view a user lands on shows representative data, not deceptively zero numbers. User can toggle 7-day if desired.
+
+**Never do:** Default to a window so short it makes real data look broken.
+
+---
+
+## ADR — Categorization logic lives in AgentPulse server, not website JS
+
+**Date:** 2026-06-13
+
+**Decision:** Traffic source categorization happens server-side in AgentPulse at GA4 read time. Website pushes raw signals only (referrer, UTMs).
+
+**Layer:** Tech
+
+**Context:** Categorization rules will evolve (new AI assistants launch, new social platforms emerge). Three duplicated categorization implementations existed on thesuepattigroup.ai causing maintenance burden.
+
+**Consequence:** One source-of-truth categorization function in AgentPulse. Website redeploy not required when categorization rules change.
+
+**Never do:** Duplicate categorization logic across website pages. Never let business logic drift across three implementations.
+
+---
+
+## ADR — GA4 Property ID vs Measurement ID
+
+**Date:** 2026-06-13
+
+**Decision:** GA4 Data API requires the numeric Property ID (537057869), NOT the measurement ID (G-WBWHJYPG12 used by gtag.js).
+
+**Layer:** Tech
+
+**Context:** First implementation attempted to use measurement ID where Data API expected property ID. Caused 404 / scope_insufficient confusion in production.
+
+**Consequence:** `GA4_PROPERTY_ID` env var holds the numeric property ID only. Measurement ID stays on the website gtag config only.
+
+**Never do:** Pass G-XXXXXXXXX strings to GA4 Data API. Never confuse the two IDs.
+
+---
+
+## ADR — Env var values must be TYPED not pasted into Netlify
+
+**Date:** 2026-06-13
+
+**Decision:** When updating env vars in Netlify UI, TYPE the value character by character, do not paste.
+
+**Layer:** Tech
+
+**Context:** `WEBSITE_NETLIFY_SITE_ID` and `GA4_PROPERTY_ID` both suffered from paste-induced truncation or whitespace contamination. Caused days of debugging.
+
+**Consequence:** Env var updates require typing into the field with Notepad verification of length BEFORE saving. After saving, trigger manual redeploy to force functions to pick up new value.
+
+**Never do:** Paste env var values into Netlify UI without verifying length in Notepad first.
+

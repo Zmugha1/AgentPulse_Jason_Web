@@ -56,3 +56,18 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Enumeration-safe auth messages: never reveal whether an email exists in the system
 - Recovery session check via user.recovery_sent_at (Supabase convention), not URL parsing
 - New pages follow App.tsx pathname-check pattern, no react-router introduction
+
+## Rules added 2026-06-13
+
+- For Netlify env vars with known length, TYPE the value character by character into the UI. Do not paste. Paste has introduced truncation and whitespace contamination twice this week.
+- After editing any Netlify env var, manually trigger Deploys → Clear cache and deploy site. Do not rely on auto-redeploy.
+- Verify env var length matches expected before declaring done. UUIDs are 36 chars with 4 hyphens. GA4 numeric property IDs are 9 digits.
+- For long multi-part diagnostic prompts to Cursor, require explicit confirmation of each check completed. Number the checks. Watch for skip-then-conclude pattern.
+- Prefer server-side truth (database) over client-side telemetry (GA4 events) for business-critical metrics when both exist.
+- GA4 Data API requires numeric Property ID (e.g. 537057869), NOT the measurement ID (G-XXXXXXXXX format used by gtag.js).
+- Service account JSON keys are blocked org-wide by `iam.managed.disableServiceAccountKeyCreation`. Use OAuth for all new Google API integrations.
+- After changing metric calculation logic, always wipe `ga4_metrics_cache` table to invalidate stale cached values.
+- Cache invalidation order: deploy first, then wipe. Wiping before deploy refills with old calculation immediately.
+- Default time-range selectors must show a window with representative data. Avoid defaults that show zeros.
+- Reframe negative-sounding metrics as actionable opportunities in user-facing copy.
+- Categorization logic that depends on external state (AI assistants, social platforms) belongs server-side not client-side. One source of truth, no duplication.

@@ -294,3 +294,83 @@ c) Walk the user through a generation step that captures the value directly into
 **Prevention rule:** Build Forgot Password flow before Jason's Tuesday demo. Production-blocking for a non-technical user who will not use Supabase admin.
 
 **Commit:** N/A (open item)
+
+---
+
+## INC — Truncated WEBSITE_NETLIFY_SITE_ID caused 165 failed poller runs
+
+**Date:** 2026-06-11 through 2026-06-13
+
+**What broke:** Phase 6 poller logged `poll_started` then `poll_failed` on every invocation for 48+ hours. Zero website lead submissions imported.
+
+**Root cause:** `WEBSITE_NETLIFY_SITE_ID` env var in agentpulseweb Netlify project was 35 characters instead of 36 — missing final `b`. Function logs showed truncated UUID.
+
+**Fix applied:** Copied correct Site ID from thesuepattigroup-ai project dashboard. Pasted into Notepad to verify 36 chars. Updated agentpulseweb env var. Triggered Clear cache and deploy site to force function rebuild with new value.
+
+**Prevention rule:** Verify env var character length in Notepad after any paste. UUID values must be exactly 36 chars with 4 hyphens.
+
+**Commit:** N/A (env var fix only, no code commit)
+
+---
+
+## INC — GA4_PROPERTY_ID stored as 20 chars instead of 9
+
+**Date:** 2026-06-13
+
+**What broke:** Market Intel showed `scope_insufficient` error in production despite OAuth token having `analytics.readonly` scope.
+
+**Root cause:** `GA4_PROPERTY_ID` was 20 characters in Netlify production env when expected 9 digits. Likely extra whitespace or prefix on paste. GA4 Data API rejected the malformed property identifier.
+
+**Fix applied:** Edited env var in Netlify UI, used Ctrl+A → Delete on the field, TYPED the 9 digits manually (537057869), saved, triggered redeploy.
+
+**Prevention rule:** For env vars with known length (UUIDs, numeric IDs), always verify length after save. Type sensitive short values rather than paste.
+
+**Commit:** N/A (env var fix only)
+
+---
+
+## INC — Cursor diagnostic skipped checks instead of running all five
+
+**Date:** 2026-06-13
+
+**What broke:** Diagnostic prompt asked for 5 specific checks; Cursor answered only check #4 and skipped the rest, then drew a conclusion that contradicted other available evidence.
+
+**Root cause:** Long diagnostic prompts with multiple parallel checks can cause Cursor to short-circuit at first answer rather than completing all items.
+
+**Fix applied:** Sent follow-up prompt explicitly listing the missing checks and saying "do not skip. Run all 5."
+
+**Prevention rule:** For multi-part diagnostics, ask Cursor to confirm completion of each check in its response. Number the checks explicitly and require a status per check.
+
+**Commit:** N/A (process fix)
+
+---
+
+## INC — GA4 Lead Conversion Rate calculation used wrong data source
+
+**Date:** 2026-06-13
+
+**What broke:** Market Intel showed 0.0% Lead Conversion Rate even though Phase 6 poller had imported a real seller-valuation lead.
+
+**Root cause:** Calculation queried GA4 for `eventName='generate_lead'` eventCount. Website's GA4 event either wasn't firing or wasn't being received. Real lead data lived in Supabase `website_lead_submissions` table.
+
+**Fix applied:** Replaced GA4 eventCount query with Supabase count query on `website_lead_submissions` filtered by `status='imported'` AND `netlify_form_name IN ('chatbot-lead', 'seller-valuation')`. Newsletter signups excluded. Cache wiped after deploy.
+
+**Prevention rule:** Prefer server-side truth (database) over client-side telemetry (GA4 events) for business-critical metrics when both exist.
+
+**Commit:** 711bc83
+
+---
+
+## INC — Service account JSON key creation blocked by org policy
+
+**Date:** 2026-06-13
+
+**What broke:** Step 2 of GA4 integration attempted to create service account JSON key. Google Cloud rejected with error `iam.managed.disableServiceAccountKeyCreation`.
+
+**Root cause:** Organization-level security policy disabled service account key creation. This is Google's "Secure by Default" enforcement from 2026.
+
+**Fix applied:** Pivoted entire architecture to OAuth flow instead of service account. Added `analytics.readonly` scope to existing OAuth configuration. Required user reconnect to grant new scope.
+
+**Prevention rule:** For any new GCP service account work, check org policy constraints FIRST before designing the architecture.
+
+**Commit:** 1b9e7bf (analytics scope addition)

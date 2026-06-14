@@ -430,3 +430,113 @@
 - Reset link expires after a window — re-request if needed
 - 3-second timeout on /reset-password if recovery session not detected (shows "expired link" UI)
 
+---
+
+## RUN — Verify Netlify env var actually took effect
+
+**Task:** Confirm an updated Netlify environment variable is being used by deployed functions.
+
+**Trigger:** After editing any env var that affects function behavior.
+
+**Steps:**
+
+1. Edit value in Netlify env vars UI
+2. Save
+3. Manually trigger Deploys → Trigger deploy → Clear cache and deploy site (env var changes don't always auto-redeploy)
+4. Wait for Published status (2-3 min)
+5. Manually trigger the affected function
+6. Read function logs via Netlify CLI: `netlify logs --function {name}`
+7. Confirm the new value appears in logs
+
+**Expected output:** Function uses the new env var value.
+
+**Watch out for:** Browser cache showing old behavior; auto-redeploy not always happening on env var save; values with trailing whitespace looking correct in UI but failing at runtime.
+
+---
+
+## RUN — Add a new OAuth scope to existing AgentPulse OAuth flow
+
+**Task:** Add an additional Google API scope without breaking existing OAuth users.
+
+**Trigger:** New Google API feature requires permission not in current OAuth grant.
+
+**Steps:**
+
+1. Add scope to `GOOGLE_OAUTH_SCOPES` array in `src/lib/googleOAuthConfig.ts`
+2. Add scope in Google Cloud Console → Google Auth Platform → Data Access section
+3. Commit and push (code must be live before reconnect)
+4. Wait for Netlify deploy to publish
+5. User disconnects Google in AgentPulse Integrations
+6. User reconnects, approves new permission on consent screen
+7. Verify `scopes_granted` in `google_oauth_tokens` table includes new scope
+
+**Expected output:** `scopes_granted` array contains the new scope URL.
+
+**Watch out for:** Reconnecting before deploy is live — user will see old consent screen; consent screen UI in 2026 calls this "Data Access" not "OAuth consent screen → Scopes".
+
+---
+
+## RUN — Migrate from service account to OAuth for Google API access
+
+**Task:** Replace service account auth pattern with user OAuth when org policy blocks service account keys.
+
+**Trigger:** Service account JSON key creation blocked by `iam.managed.disableServiceAccountKeyCreation` org policy.
+
+**Steps:**
+
+1. Add target API scope to OAuth configuration (`analytics.readonly` for GA4, equivalent for other APIs)
+2. Update OAuth consent screen Data Access in GCP Console
+3. User reconnects to grant new scope
+4. In server code: use `getValidAccessToken(userEmail)` to get OAuth bearer token
+5. Use that token in `Authorization: Bearer` header instead of service account credentials
+6. Pre-flight check: verify `analytics.readonly` is in user's `scopes_granted` before calling target API
+
+**Expected output:** Functions can call Google API on behalf of the connected user.
+
+**Watch out for:** User must have Viewer-or-higher access to the target resource (GA4 property, Calendar, etc.) — OAuth grant alone is not enough.
+
+---
+
+## RUN — Fix corrupted env var in Netlify production
+
+**Task:** Clear and re-set a Netlify environment variable when stored value is wrong length or contains whitespace.
+
+**Trigger:** Function logs show env var with unexpected length or truncation.
+
+**Steps:**
+
+1. Netlify → agentpulseweb → Site configuration → Environment variables
+2. Find the variable, click → Edit
+3. Click inside the value field, press Ctrl+A to select all
+4. Press Delete to clear the field completely
+5. TYPE the correct value character by character (do not paste)
+6. For known-length values (UUIDs, numeric IDs), verify character count visually
+7. Save
+8. Force redeploy via Deploys → Trigger deploy → Clear cache and deploy site
+9. Wait for Published status
+10. Test the affected function
+
+**Expected output:** Function uses correct value, errors clear.
+
+**Watch out for:** Pasting reintroduces the same whitespace/truncation; auto-deploy doesn't always trigger on env var save; functions use cached old env until next deploy.
+
+---
+
+## RUN — Wipe ga4_metrics_cache after metric calculation change
+
+**Task:** Clear stale cached metric values after changing how a metric is calculated server-side.
+
+**Trigger:** Any code change to the metric calculation logic in `fetch-website-metrics.ts`.
+
+**Steps:**
+
+1. Deploy the code change to production
+2. Wait for Published status
+3. Run: `DELETE FROM ga4_metrics_cache WHERE 1=1;`
+4. Hard refresh Market Intel (Ctrl+Shift+R) in browser
+5. Verify cards show new values, not stale cached zeros
+
+**Expected output:** All users see freshly calculated metrics immediately.
+
+**Watch out for:** Wiping before deploy is live — cache will refill with the old calculation immediately. Always deploy first, then wipe.
+

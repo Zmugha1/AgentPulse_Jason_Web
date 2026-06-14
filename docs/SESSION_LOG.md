@@ -465,3 +465,60 @@ Blockers and open items:
 - Save Brief / Email Brief features (deferred)
 - Market Intel website traffic (queued for Wednesday)
 
+---
+
+## Session 2026-06-13
+
+**Commits this session:**
+
+- `1b9e7bf` — feat: add analytics.readonly scope for GA4 market intel integration
+- `d8b4aa7` — feat: market intel ga4 website activity with cache layer
+- `711bc83` — feat: market intel lead conversion uses real submission data with 30 day default
+
+**ADRs added:** 6
+
+- Service account auth blocked by org policy → use OAuth
+- Lead conversion uses Supabase real submissions not GA4 events
+- Market Intel default range last_30_days not last_7_days
+- Categorization logic lives in AgentPulse server not website JS
+- GA4 Property ID vs Measurement ID distinction
+- Env var values must be typed not pasted in Netlify
+
+**Incidents resolved:** 5
+
+- Truncated WEBSITE_NETLIFY_SITE_ID (165 failed poller runs)
+- GA4_PROPERTY_ID stored as 20 chars instead of 9
+- Cursor diagnostic skipped checks 1, 2, 3, 5
+- Lead Conversion Rate used wrong data source
+- Service account JSON key creation blocked by org policy
+
+**Runbooks added:** 5
+
+- Verify Netlify env var actually took effect
+- Add new OAuth scope to existing AgentPulse flow
+- Migrate from service account to OAuth
+- Fix corrupted env var in Netlify production
+- Wipe ga4_metrics_cache after metric change
+
+**Voice rules added:** 3
+
+- Reframe negative metrics as opportunities
+- Translate analytics jargon for realtor reader
+- Footer disclaimers explain what's NOT counted
+
+**Production state at session end:**
+
+- Phase 6 poller: working, 6 rows in `website_lead_submissions`
+- Market Intel GA4 OAuth: working, real data live
+- Lead Conversion Rate: counts real Supabase submissions
+- Default range: `last_30_days` showing 2.1% conversion (1 lead, 47 sessions)
+- Cache wiped and rebuilding fresh
+
+**Open items / blockers:**
+
+- Traffic source categorization redesign — investigation complete, build plan defined (3 phases), no code yet
+- thesuepattigroup.ai has duplicated gtag in 13 HTML files — refactor planned
+- 3 separate categorization implementations in website JS — consolidation planned
+
+**Next session should start with:** Phase A of traffic source build — create `js/analytics.js` in thesuepattigroup.ai repo as single source of truth for attribution capture, push to GA4 as event parameters.
+
