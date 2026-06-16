@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
 import {
   getAnswerSource,
-  getAnswerValue,
   isAnswerPendingConfirmation,
-  updateAnswer,
 } from '../services/stzProfileService'
 import type { StzQuestion } from '../lib/stz-questions'
 import type { StzProfile } from '../lib/types'
@@ -11,8 +8,8 @@ import type { StzProfile } from '../lib/types'
 type StzAnswerFieldProps = {
   question: StzQuestion
   profile: StzProfile
-  userEmail: string
-  onProfileUpdated: (profile: StzProfile) => void
+  draft: string
+  onDraftChange: (questionId: StzQuestion['id'], value: string) => void
 }
 
 function badgeForSource(
@@ -39,50 +36,15 @@ function badgeForSource(
 export default function StzAnswerField({
   question,
   profile,
-  userEmail,
-  onProfileUpdated,
+  draft,
+  onDraftChange,
 }: StzAnswerFieldProps) {
   const pending = isAnswerPendingConfirmation(profile, question.id)
-  const stored = getAnswerValue(profile, question.id)
-  const displayInitial = pending ? '' : stored
-
-  const [draft, setDraft] = useState(displayInitial)
-  const [saving, setSaving] = useState(false)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const [error, setError] = useState<string | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    setDraft(pending ? '' : getAnswerValue(profile, question.id))
-    setError(null)
-  }, [profile, question.id, pending])
+  const stored = profile[question.id]
+  const storedText = typeof stored === 'string' ? stored : ''
 
   const source = getAnswerSource(profile, question.id)
   const badge = badgeForSource(source)
-
-  async function saveDraft() {
-    const normalized = draft.trim()
-    const compareTo = pending ? '' : stored.trim()
-    if (normalized === compareTo) {
-      setSaveState('idle')
-      return
-    }
-
-    setSaving(true)
-    setSaveState('saving')
-    setError(null)
-    try {
-      const updated = await updateAnswer(userEmail, question.id, normalized)
-      onProfileUpdated(updated)
-      setSaveState('saved')
-      window.setTimeout(() => setSaveState('idle'), 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
-      setSaveState('idle')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   return (
     <div className="border border-mint/60 rounded-lg p-4 bg-white">
@@ -100,36 +62,17 @@ export default function StzAnswerField({
       </div>
 
       <textarea
-        ref={textareaRef}
         value={draft}
         rows={4}
-        disabled={saving}
         placeholder={
           pending
-            ? stored ||
+            ? storedText ||
               'Jason: add your answer here. This item was not clear from the BNI transcript.'
             : 'Your answer…'
         }
         className="w-full font-body text-sm text-navy border border-mint rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal resize-y min-h-[6rem]"
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          if (!saving) void saveDraft()
-        }}
+        onChange={(e) => onDraftChange(question.id, e.target.value)}
       />
-
-      <div className="flex items-center gap-3 mt-1 min-h-[1.25rem]">
-        {saveState === 'saving' && (
-          <span className="font-label text-[10px] text-slate">Saving…</span>
-        )}
-        {saveState === 'saved' && (
-          <span className="font-label text-[10px] text-teal">Saved</span>
-        )}
-        {error ? (
-          <p className="font-body text-coral text-xs" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </div>
     </div>
   )
 }

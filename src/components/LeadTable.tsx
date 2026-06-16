@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
 import LeadPurposeEditor from './LeadPurposeEditor'
+import LeadStageEditor from './LeadStageEditor'
 
 /** Score DESC, then original_lead_date ASC (oldest first). Matches Morning Brief. */
 export function sortLeadsByScoreThenDate(leads: Lead[]): Lead[] {
@@ -213,8 +214,12 @@ export default function LeadTable({
                   <td className="px-3 py-2 text-navy">
                     {formatSource(lead.source)}
                   </td>
-                  <td className="px-3 py-2">
-                    <StageBadge stage={lead.pipeline_stage} />
+                  <td className="px-3 py-2 align-top">
+                    {onLeadUpdated ? (
+                      <LeadStageEditor lead={lead} onUpdated={onLeadUpdated} />
+                    ) : (
+                      <StageBadge stage={lead.pipeline_stage} />
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right font-label text-navy">
                     {lead.score ?? 0}

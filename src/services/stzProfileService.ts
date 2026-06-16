@@ -132,3 +132,57 @@ export async function updateAnswer(
   }
   return asProfile(data)
 }
+
+/**
+ * Batch-save STZ answers from the My AgentPulse form.
+ * Only fields with non-empty trimmed content are written (empty drafts are skipped).
+ */
+export async function saveProfileAnswers(
+  userEmail: string,
+  changes: Partial<Record<StzQuestionId, string>>,
+): Promise<StzProfile> {
+  const email = userEmail.trim().toLowerCase()
+  const profile = await getProfileForUser(email)
+  const sources: Partial<Record<StzQuestionId, StzAnswerSource>> = {
+    ...profile.answer_sources,
+  }
+  const payload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  let hasUpdates = false
+
+  for (const [questionId, rawValue] of Object.entries(changes) as [
+    StzQuestionId,
+    string,
+  ][]) {
+    if (!STZ_QUESTION_IDS.includes(questionId)) continue
+    const trimmed = rawValue.trim()
+    if (!trimmed) continue
+
+    const stored = getAnswerValue(profile, questionId).trim()
+    if (trimmed === stored) continue
+
+    payload[questionId] = trimmed
+    sources[questionId] = 'user_edited'
+    hasUpdates = true
+  }
+
+  if (!hasUpdates) {
+    return profile
+  }
+
+  payload.answer_sources = sources
+
+  const { data, error } = await supabase
+    .from('stz_profile')
+    .update(payload)
+    .eq('user_email', email)
+    .select(PROFILE_SELECT)
+    .single()
+
+  assertNoError(error, 'saveProfileAnswers')
+  if (!data) {
+    throw new Error('saveProfileAnswers: no profile returned')
+  }
+  return asProfile(data)
+}
