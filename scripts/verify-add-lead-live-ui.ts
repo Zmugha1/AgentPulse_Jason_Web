@@ -10,8 +10,8 @@ import path from 'path'
 import { chromium, type Page } from 'playwright'
 
 const LIVE_URL = 'https://agentpulseweb.netlify.app'
-const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? 'zubiamL4L@gmail.com'
-const TEMP_PASSWORD = process.env.TEST_USER_PASSWORD ?? 'AgentPulse-Verify-2026!'
+const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? ''
+const TEMP_PASSWORD = process.env.TEST_PASSWORD ?? ''
 const TEST_LEAD_EMAIL = 'demo.walkin@test.agentpulse.local'
 
 function loadEnvLocal(): void {

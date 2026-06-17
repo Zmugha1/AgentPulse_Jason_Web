@@ -6,10 +6,10 @@ import { createClient } from '@supabase/supabase-js'
 import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 import { setSupabaseClient } from '../src/lib/getSupabaseClient'
-import { JASON_STZ_EMAIL } from '../src/lib/stz-seed-data'
+const JASON_STZ_EMAIL = process.env.TEST_USER_EMAIL ?? ''
 
-const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? 'zubiamL4L@gmail.com'
-const TEMP_PASSWORD = process.env.TEST_USER_PASSWORD ?? 'AgentPulse-Verify-2026!'
+const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? ''
+const TEMP_PASSWORD = process.env.TEST_PASSWORD ?? ''
 
 function loadEnvLocal(): void {
   const envPath = path.join(process.cwd(), '.env.local')

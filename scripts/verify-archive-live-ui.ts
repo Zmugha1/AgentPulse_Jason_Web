@@ -11,8 +11,8 @@ import path from 'path'
 import { chromium } from 'playwright'
 
 const LIVE_URL = 'https://agentpulseweb.netlify.app'
-const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? 'zubiamL4L@gmail.com'
-const TEMP_PASSWORD = process.env.TEST_USER_PASSWORD ?? 'AgentPulse-Verify-2026!'
+const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? ''
+const TEMP_PASSWORD = process.env.TEST_PASSWORD ?? ''
 
 function loadEnvLocal(): void {
   const envPath = path.join(process.cwd(), '.env.local')

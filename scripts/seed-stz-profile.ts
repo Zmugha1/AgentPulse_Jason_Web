@@ -12,7 +12,7 @@ import {
 import type { StzAnswerSource, StzQuestionId } from '../src/lib/stz-questions'
 import { STZ_QUESTION_IDS } from '../src/lib/stz-questions'
 
-const JASON_STZ_EMAIL = 'jpyourrealtor@gmail.com'
+const JASON_STZ_EMAIL = process.env.TEST_USER_EMAIL ?? ''
 
 function loadEnvLocal(): void {
   const envPath = path.join(process.cwd(), '.env.local')

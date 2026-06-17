@@ -8,14 +8,14 @@ import path from 'path'
 import { chromium, type Page } from 'playwright'
 
 const LIVE_URL = 'https://agentpulseweb.netlify.app'
-const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? 'zubiamL4L@gmail.com'
-const TEMP_PASSWORD = process.env.TEST_USER_PASSWORD ?? 'AgentPulse-Verify-2026!'
+const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? ''
+const TEMP_PASSWORD = process.env.TEST_PASSWORD ?? ''
 
 const NAV_PAGES: { label: string; expect: RegExp }[] = [
   { label: 'Morning Brief', expect: /Good (morning|afternoon|evening)/i },
   { label: 'Lead Intelligence', expect: /Showing \d+ of \d+ leads/i },
   { label: 'Market Intel', expect: /active pool/i },
-  { label: 'My AgentPulse', expect: /STZ framework answers/i },
+  { label: 'My AgentPulse', expect: /STZ framework captures/i },
   { label: 'Integrations', expect: /Google Account/i },
 ]
 
