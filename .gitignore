@@ -31,3 +31,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Local Netlify folder
+.netlify
+
+# Tooling and local diagnostic scripts
+deno.lock
+scripts/verify-*.ts
+scripts/test-*.ts
+scripts/
