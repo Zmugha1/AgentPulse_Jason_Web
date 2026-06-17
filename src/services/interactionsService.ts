@@ -65,6 +65,7 @@ export async function logInteraction(
   }
 
   const stage = STAGE_BY_OUTCOME[outcome]
+  console.log('[interactionsService] stage lookup -- outcome:', outcome, 'stage:', stage)
   if (stage) {
     await updateLeadStage(leadId, stage)
   }
