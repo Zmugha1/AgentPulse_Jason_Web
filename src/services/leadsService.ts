@@ -314,17 +314,14 @@ export async function unarchiveLead(leadId: string): Promise<Lead> {
  * Update a lead's pipeline stage and bump `updated_at`.
  */
 export async function updateLeadStage(id: string, stage: string): Promise<void> {
-  console.log('[updateLeadStage] called with id:', id, 'stage:', stage)
-  const { data, error, count } = await supabase
+  const { error } = await supabase
     .from('leads')
     .update({
       pipeline_stage: stage,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .select()
 
-  console.log('[updateLeadStage] result -- error:', error, 'count:', count, 'data:', data)
   assertNoError(error, 'updateLeadStage')
 }
 

@@ -27,6 +27,10 @@ export async function getMorningBriefLeads(
     .from('leads')
     .select(LEAD_SELECT)
     .eq('is_archived', false)
+    .or(
+      'last_contact_at.is.null,last_contact_at.lt.' +
+        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    )
     .order('score', { ascending: false, nullsFirst: false })
     .order('original_lead_date', { ascending: true, nullsFirst: false })
 

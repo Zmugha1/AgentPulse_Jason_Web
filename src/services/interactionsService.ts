@@ -1,20 +1,6 @@
 import { supabase } from '../lib/supabase'
-import { updateLeadStage } from './leadsService'
 
 const CONTACT_OUTCOMES = new Set(['called', 'voicemail', 'emailed'])
-
-/**
- * Morning Brief action outcome -> leads.pipeline_stage mapping.
- * called, emailed -> contacted
- * voicemail, not_interested, no_answer -> attempted
- */
-const STAGE_BY_OUTCOME: Record<string, string> = {
-  called: 'contacted',
-  emailed: 'contacted',
-  voicemail: 'attempted',
-  not_interested: 'attempted',
-  no_answer: 'attempted',
-}
 
 function assertNoError(error: { message: string } | null, context: string): void {
   if (error) {
@@ -62,11 +48,5 @@ export async function logInteraction(
 
   if (CONTACT_OUTCOMES.has(outcome)) {
     await updateLastContactAt(leadId)
-  }
-
-  const stage = STAGE_BY_OUTCOME[outcome]
-  console.log('[interactionsService] stage lookup -- outcome:', outcome, 'stage:', stage)
-  if (stage) {
-    await updateLeadStage(leadId, stage)
   }
 }

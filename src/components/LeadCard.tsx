@@ -3,6 +3,15 @@ import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
 import ActionButtons, { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
 import { logInteraction } from '../services/interactionsService'
+import { updateLeadStage } from '../services/leadsService'
+
+const STAGE_BY_OUTCOME: Record<string, string> = {
+  called: 'contacted',
+  emailed: 'contacted',
+  voicemail: 'attempted',
+  not_interested: 'attempted',
+  no_answer: 'attempted',
+}
 
 function displayName(lead: Lead): string {
   const name = `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.trim()
@@ -84,6 +93,10 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
     setError(null)
     try {
       await logInteraction(lead.id, action.type, action.outcome)
+      const stage = STAGE_BY_OUTCOME[action.outcome]
+      if (stage) {
+        await updateLeadStage(lead.id, stage)
+      }
       setFading(true)
       window.setTimeout(() => onActionComplete(lead.id), 300)
     } catch (err) {
