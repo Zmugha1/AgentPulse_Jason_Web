@@ -71,3 +71,14 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Default time-range selectors must show a window with representative data. Avoid defaults that show zeros.
 - Reframe negative-sounding metrics as actionable opportunities in user-facing copy.
 - Categorization logic that depends on external state (AI assistants, social platforms) belongs server-side not client-side. One source of truth, no duplication.
+
+## Rules added 2026-06-18
+
+- GA4 Data API custom event dimensions require the `customEvent:` prefix. Use the event parameter name not the dimension display name. Check GA4 Admin → Custom definitions before writing any GA4 query.
+- After every commit, confirm Netlify Published hash matches local commit hash before testing production. Never assume auto-deploy fired.
+- Every catch block must log `err.message` not just a generic reason string. Pattern: `err instanceof Error ? err.message : String(err)`
+- `scan-gmail-leads` runs every 15 minutes via Netlify scheduled function. Never add a manual trigger or page-load trigger.
+- `gmail_processed_messages` is the idempotency layer for Gmail lead detection. Never bypass it.
+- `analytics.js` on thesuepattigroup.ai is the single source of truth for all attribution capture. Never add `gtag()` calls directly to HTML pages.
+- Action buttons (Called, Voicemail, No Answer, Emailed, Not Interested) must exist and behave identically in every view where a lead appears. Never build workflow actions in one view only.
+- Morning Brief actions and Lead Intelligence actions are the same five buttons with the same stage mapping. One system. No inconsistency.

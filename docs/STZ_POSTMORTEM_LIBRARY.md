@@ -374,3 +374,51 @@ c) Walk the user through a generation step that captures the value directly into
 **Prevention rule:** For any new GCP service account work, check org policy constraints FIRST before designing the architecture.
 
 **Commit:** 1b9e7bf (analytics scope addition)
+
+---
+
+## INC — GA4 dimension names required three fix cycles
+
+**Date:** 2026-06-18
+
+**What broke:** Market Intel showed "Could not load metrics" after Phase C deploy. Three separate deploy-fix-deploy cycles were needed to resolve.
+
+**Root cause:** GA4 Data API requires `customEvent:` prefix for custom event dimensions. Additionally the API uses the event parameter name not the dimension display name. Both facts were unknown at build time.
+
+**Fix applied:** Changed dimension names to `customEvent:referrer_domain` and `customEvent:utm_source` in the 4th `runReport` call. Commit `10df2c2`.
+
+**Prevention rule:** Before writing any GA4 Data API query for custom dimensions, open GA4 Admin → Custom definitions and read the exact event parameter name. Use that value with `customEvent:` prefix. Test in GA4 Explorer before coding.
+
+**Commit:** 10df2c2
+
+---
+
+## INC — Netlify deploy showed Published but served old code
+
+**Date:** 2026-06-18
+
+**What broke:** Commit `10df2c2` was local and showed in `git log` but Netlify was serving `b99d58b`. Market Intel continued failing despite believing the fix was live.
+
+**Root cause:** `git push` was not run after the commit. Netlify auto-deploy only triggers on push to remote, not on local commit.
+
+**Fix applied:** Ran `git push origin main` explicitly. Confirmed remote hash matched before testing.
+
+**Prevention rule:** After every commit, immediately run `git log --oneline -3` AND check Netlify deploy hash matches before testing production. Never assume auto-deploy fired.
+
+**Commit:** 10df2c2
+
+---
+
+## INC — Error logging swallowed GA4 error message
+
+**Date:** 2026-06-18
+
+**What broke:** First two GA4 failures showed only generic `internal_error` in logs with no detail. Could not diagnose without seeing GA4 error text.
+
+**Root cause:** Catch block logged `reason: unexpected` but did not log `err.message`. GA4 returns detailed `INVALID_ARGUMENT` messages that were being discarded.
+
+**Fix applied:** Added `message` field to `safeLog` call in catch block. Commit `0ad33f8`.
+
+**Prevention rule:** Every catch block that calls `safeLog` must include the raw error message. `err instanceof Error ? err.message : String(err)` is the pattern.
+
+**Commit:** 0ad33f8

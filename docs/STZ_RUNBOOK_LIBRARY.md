@@ -540,3 +540,46 @@
 
 **Watch out for:** Wiping before deploy is live — cache will refill with the old calculation immediately. Always deploy first, then wipe.
 
+---
+
+## RUN — Debug a GA4 Data API dimension error
+
+**Task:** Identify and fix an `INVALID_ARGUMENT` error on a GA4 Data API `runReport` call.
+
+**Trigger:** Market Intel shows "Could not load metrics" and Netlify logs show `ga4_fetch_failed`.
+
+**Steps:**
+
+1. Go to Netlify → Functions → `fetch-website-metrics` → Logs
+2. Find the `ga4_fetch_failed` log entry
+3. Read the `message` field exactly. GA4 will say "Did you mean X?" or "Field Y is not valid."
+4. Go to GA4 Admin → Custom definitions
+5. Find the dimension, read the User Property/Parameter column exactly
+6. Update the dimension name in the code to `customEvent:[parameter name]`
+7. Deploy, wipe `ga4_metrics_cache`, hard refresh
+
+**Expected output:** Market Intel loads with real data.
+
+**Watch out for:** Display name vs parameter name mismatch. Always use the parameter name. Always confirm the pushed commit hash matches Netlify Published hash before testing.
+
+---
+
+## RUN — Confirm Netlify deploy hash matches local commit
+
+**Task:** Verify that what Netlify is serving matches what you just committed and pushed.
+
+**Trigger:** After any push to `main` before testing production.
+
+**Steps:**
+
+1. Run `git log --oneline -1` to get local hash
+2. Go to Netlify → Deploys
+3. Confirm the Published deploy shows the same hash as step 1
+4. If hashes differ, check if push actually ran
+5. Run `git push origin main` if needed
+6. Wait for new Published status
+
+**Expected output:** Netlify hash matches local hash.
+
+**Watch out for:** Netlify auto-deploy does not fire on local commit, only on push to remote. A Published status from a prior deploy can look current even when it is not.
+

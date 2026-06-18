@@ -555,3 +555,83 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 
 **Never do:** Paste env var values into Netlify UI without verifying length in Notepad first.
 
+---
+
+## ADR — Gmail lead detection uses scheduled Netlify function
+
+**Date:** 2026-06-18
+
+**Decision:** `scan-gmail-leads.ts` runs every 15 minutes via Netlify scheduled function using existing OAuth tokens from `google_oauth_tokens` table.
+
+**Layer:** Tech
+
+**Context:** Zillow and Realtor.com do not provide OAuth API keys. Email is the only available integration path. Gmail API with readonly scope gives access to lead notification emails.
+
+**Consequence:** Leads land in AgentPulse within 15 minutes of the email arriving. `gmail_processed_messages` table prevents duplicate processing.
+
+**Never do:** Poll Gmail on every page load. Use scheduled function only.
+
+---
+
+## ADR — GA4 custom event dimensions require customEvent: prefix
+
+**Date:** 2026-06-18
+
+**Decision:** All custom event dimensions in GA4 Data API calls must use the `customEvent:` prefix, e.g. `customEvent:referrer_domain` not `referrer_domain`.
+
+**Layer:** Tech
+
+**Context:** Three consecutive deploy-fix-deploy cycles were required because GA4 rejected dimension names without the prefix. Each rejection required reading the Netlify function log to get GA4's exact error message.
+
+**Consequence:** Any future GA4 custom dimension query must use `customEvent:` prefix. The event parameter name (not the dimension display name) is what GA4 uses in the API.
+
+**Never do:** Use a GA4 custom dimension display name in the API. Always use the event parameter name with `customEvent:` prefix.
+
+---
+
+## ADR — GA4 event parameter name drives the API dimension name
+
+**Date:** 2026-06-18
+
+**Decision:** When querying GA4 Data API for a custom dimension, use the event parameter value not the dimension display name. `utm_source_captured` display name has event parameter `utm_source`, so the correct API call is `customEvent:utm_source`.
+
+**Layer:** Tech
+
+**Context:** `utm_source_captured` failed even with the `customEvent:` prefix because the event parameter registered in GA4 admin was `utm_source` not `utm_source_captured`.
+
+**Consequence:** Before writing any GA4 custom dimension query, check GA4 Admin → Custom definitions and read the User Property/Parameter column. That value is what goes after `customEvent:` in the API call.
+
+**Never do:** Assume the dimension display name matches the event parameter name.
+
+---
+
+## ADR — Phase A analytics.js is single source of truth
+
+**Date:** 2026-06-18
+
+**Decision:** `js/analytics.js` on thesuepattigroup.ai is the only place gtag is loaded and attribution is captured. All 13 HTML pages include this one file.
+
+**Layer:** Tech
+
+**Context:** Three separate categorization implementations existed across the 13 pages causing maintenance burden and inconsistent data.
+
+**Consequence:** Any change to attribution capture or gtag configuration happens in one file only. Never add gtag calls directly to HTML pages.
+
+**Never do:** Add inline `gtag()` calls to any HTML page. Never duplicate analytics logic across pages.
+
+---
+
+## ADR — Morning Brief actions and Lead Intelligence actions must be identical
+
+**Date:** 2026-06-18
+
+**Decision:** The five action buttons (Called, Voicemail, No Answer, Emailed, Not Interested) must exist and behave identically in both Morning Brief and Lead Intelligence. Lead Intelligence currently has none of these buttons. This is a known gap to fix.
+
+**Layer:** L3 Agents
+
+**Context:** Jason noticed the inconsistency. He can action a lead in Morning Brief but cannot action the same lead in Lead Intelligence. The two views are disconnected.
+
+**Consequence:** Next build session must add the five action buttons to Lead Intelligence lead rows with the same stage mapping as Morning Brief.
+
+**Never do:** Build workflow actions in one view without adding them to all views where the same lead appears.
+

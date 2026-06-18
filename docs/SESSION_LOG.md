@@ -522,3 +522,74 @@ Blockers and open items:
 
 **Next session should start with:** Phase A of traffic source build — create `js/analytics.js` in thesuepattigroup.ai repo as single source of truth for attribution capture, push to GA4 as event parameters.
 
+---
+
+## Session 2026-06-18
+
+**Commits this session:**
+
+- `d47a2ee` — chore: ignore deno.lock and diagnostic scripts
+- `2ab39f9` — feat: phase 7b gmail lead detection for zillow and realtor.com
+- `76db030` — feat: phase A unified analytics.js (website repo)
+- `dbc1e24` — feat: phase C traffic source categories in market intel
+- `0ad33f8` — fix: correct ga4 dimension names, log raw error message
+- `b99d58b` — fix: add customEvent: prefix to ga4 custom dimension names
+- `10df2c2` — fix: use customEvent:utm_source not utm_source_captured
+
+**ADRs added:** 5
+
+- Gmail lead detection via scheduled function
+- GA4 custom event dimensions require customEvent: prefix
+- GA4 event parameter name drives API dimension name
+- Phase A analytics.js single source of truth
+- Morning Brief and Lead Intelligence actions must match
+
+**Incidents resolved:** 3
+
+- GA4 dimension names required three fix cycles
+- Netlify served old code despite showing Published
+- Error logging swallowed GA4 error message
+
+**Runbooks added:** 2
+
+- Debug a GA4 Data API dimension error
+- Confirm Netlify deploy hash matches local commit
+
+**Voice rules added:** 0
+
+**Production state at session end:**
+
+- Phase 7b live: `scan-gmail-leads` scheduled every 15 minutes, `gmail_processed_messages` table live
+- Phase A live: `analytics.js` deployed across all 13 pages, `attribution_capture` confirmed in GA4
+- Phase C live: Market Intel traffic source section showing real data, Direct/Bookmark 53 sessions
+- All prior functionality preserved
+- Both Netlify projects green on latest commits
+
+**Open items:**
+
+- Morning Brief action buttons missing from Lead Intelligence — priority fix next session
+- Source values showing raw database names not clean display names (`realtor_com_connections_plus`)
+- Stage dropdown in Lead Intelligence may be hidden off-screen on narrower viewports
+- `scan-gmail-leads` end-to-end test pending — needs real Zillow or Realtor.com lead email in Jason's Gmail inbox
+- Phase B GA4 custom dimensions accumulating data passively — other traffic source categories will populate as traffic grows
+
+**Complete build list as of session end:**
+
+0. Morning Brief and Lead Intelligence action alignment (priority fix, next session first)
+1. SMS one-click draft
+2. Email compose mailto
+3. Call script on lead detail
+4. Gmail send scope verification (submit to Google)
+5. Find More About Lead button (People API)
+6. Lead scoring rebuild (full signal model)
+7. Source normalization (clean display names)
+8. Source dropdown update in Lead Intelligence
+9. Lead source badges on every lead row
+10. Newsletter leads into pipeline
+11. AI referral leads into pipeline
+12. Zillow historical CSV import (900 leads)
+13. Manual lead entry source dropdown
+14. Weekly digest email for Jason
+
+**Next session should start with:** Build 0 — add the five action buttons (Called, Voicemail, No Answer, Emailed, Not Interested) to Lead Intelligence lead rows with the same stage mapping as Morning Brief. Then move to Build 1 SMS draft and Build 2 email compose.
+
