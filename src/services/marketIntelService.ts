@@ -332,12 +332,19 @@ export type WebsiteTopPageRow = {
   views: number
 }
 
+export type TrafficSourceCategoryRow = {
+  category: string
+  sessions: number
+  suggested_action: string
+}
+
 export type MarketIntelResult = {
   range: MetricsRange
   sessions: number
   users: number
   top_sources: WebsiteTopSourceRow[]
   top_pages: WebsiteTopPageRow[]
+  traffic_sources: TrafficSourceCategoryRow[]
   lead_events: number
   lead_conversion_rate: number
   fetched_at: string
@@ -355,6 +362,7 @@ function emptyWebsiteMetricsResult(
     users: 0,
     top_sources: [],
     top_pages: [],
+    traffic_sources: [],
     lead_events: 0,
     lead_conversion_rate: 0,
     fetched_at: '',
@@ -413,6 +421,28 @@ function normalizeTopPages(raw: unknown): WebsiteTopPageRow[] {
   return rows
 }
 
+function normalizeTrafficSources(raw: unknown): TrafficSourceCategoryRow[] {
+  if (!Array.isArray(raw)) return []
+  const rows: TrafficSourceCategoryRow[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as {
+      category?: unknown
+      sessions?: unknown
+      suggested_action?: unknown
+    }
+    if (typeof row.category !== 'string' || !row.category.trim()) continue
+    const sessions = Number(row.sessions)
+    rows.push({
+      category: row.category.trim(),
+      sessions: Number.isFinite(sessions) ? sessions : 0,
+      suggested_action:
+        typeof row.suggested_action === 'string' ? row.suggested_action : '',
+    })
+  }
+  return rows.filter((row) => row.sessions > 0)
+}
+
 function normalizeWebsiteMetricsResponse(
   body: Record<string, unknown>,
   range: MetricsRange,
@@ -428,6 +458,7 @@ function normalizeWebsiteMetricsResponse(
     users: Number.isFinite(users) ? users : 0,
     top_sources: normalizeTopSources(body.top_sources),
     top_pages: normalizeTopPages(body.top_pages),
+    traffic_sources: normalizeTrafficSources(body.traffic_sources),
     lead_events: Number.isFinite(lead_events) ? lead_events : 0,
     lead_conversion_rate: Number.isFinite(lead_conversion_rate)
       ? lead_conversion_rate

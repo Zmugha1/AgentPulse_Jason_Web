@@ -22,6 +22,7 @@ import {
   getTotalCounts,
   type MarketIntelResult,
   type MetricsRange,
+  type TrafficSourceCategoryRow,
 } from '../services/marketIntelService'
 
 const CHART_COLORS = ['#2D4459', '#3BBFBF', '#F05F57', '#D4A017', '#C8E8E5']
@@ -119,6 +120,98 @@ function WebsiteActivitySkeleton() {
   )
 }
 
+function TrafficSourcesSkeleton() {
+  return (
+    <div className="mt-6 space-y-3">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div
+          key={index}
+          className="bg-cream border border-mint rounded-lg p-4 animate-pulse"
+        >
+          <div className="h-4 bg-mint/80 rounded w-40 mb-3" />
+          <div className="h-7 bg-mint/80 rounded w-16 mb-2" />
+          <div className="h-3 bg-mint/60 rounded w-full mb-3" />
+          <div className="h-2 bg-mint/50 rounded w-full" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function trafficRangeLabel(range: MetricsRange): string {
+  return range === 'last_30_days' ? '30' : '7'
+}
+
+function TrafficSourcesSection({
+  range,
+  loading,
+  trafficSources,
+}: {
+  range: MetricsRange
+  loading: boolean
+  trafficSources: TrafficSourceCategoryRow[]
+}) {
+  const categorizedSessions = trafficSources.reduce(
+    (sum, row) => sum + row.sessions,
+    0,
+  )
+  const maxSessions = Math.max(
+    ...trafficSources.map((row) => row.sessions),
+    1,
+  )
+
+  return (
+    <div className="mt-6 border-t border-mint pt-6">
+      <h3 className="font-heading text-base text-navy">
+        Where Your Visitors Come From
+      </h3>
+      <p className="font-label text-xs text-slate mt-1">
+        Last {trafficRangeLabel(range)} days -- {formatCount(categorizedSessions)}{' '}
+        sessions categorized
+      </p>
+
+      {loading ? (
+        <TrafficSourcesSkeleton />
+      ) : trafficSources.length === 0 || categorizedSessions === 0 ? (
+        <p className="font-body text-sm text-slate mt-4">
+          Not enough traffic data yet. Check back after your site has received
+          more visitors.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {trafficSources.map((row) => (
+            <div
+              key={row.category}
+              className="bg-cream border border-mint rounded-lg p-4"
+            >
+              <div className="font-heading text-base text-navy">
+                {row.category}
+              </div>
+              <div className="font-body text-2xl font-bold text-teal mt-1">
+                {formatCount(row.sessions)}
+              </div>
+              <p className="font-body text-[13px] text-slate mt-2 leading-relaxed">
+                {row.suggested_action}
+              </p>
+              <div
+                className="mt-3 h-2 rounded-full bg-mint overflow-hidden"
+                role="presentation"
+              >
+                <div
+                  className="h-full rounded-full bg-teal"
+                  style={{
+                    width: `${Math.max(4, (row.sessions / maxSessions) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WebsiteMetricCard({
   label,
   children,
@@ -151,6 +244,7 @@ function WebsiteActivitySection() {
         users: 0,
         top_sources: [],
         top_pages: [],
+        traffic_sources: [],
         lead_events: 0,
         lead_conversion_rate: 0,
         fetched_at: '',
@@ -207,7 +301,14 @@ function WebsiteActivitySection() {
 
       <div className="mt-4">
         {loading ? (
-          <WebsiteActivitySkeleton />
+          <>
+            <WebsiteActivitySkeleton />
+            <TrafficSourcesSection
+              range={range}
+              loading
+              trafficSources={[]}
+            />
+          </>
         ) : error === 'unauthenticated' ? (
           <p className="font-body text-sm text-coral">
             Please sign in again
@@ -356,6 +457,12 @@ function WebsiteActivitySection() {
                 )}
               </WebsiteMetricCard>
             </div>
+
+            <TrafficSourcesSection
+              range={range}
+              loading={loading}
+              trafficSources={metrics?.traffic_sources ?? []}
+            />
 
             <p className="font-label text-xs text-slate mt-3 leading-relaxed">
               Conversion rate counts real form submissions (chatbot + seller

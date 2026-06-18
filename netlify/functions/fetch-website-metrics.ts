@@ -39,16 +39,48 @@ type TopPageRow = {
   views: number
 }
 
+type TrafficCategory =
+  | 'Paid'
+  | 'Email'
+  | 'AI Assistant'
+  | 'Listing Sites'
+  | 'Social'
+  | 'Google Search'
+  | 'Referral'
+  | 'Direct / Bookmark'
+
+type TrafficSourceRow = {
+  category: TrafficCategory
+  sessions: number
+  suggested_action: string
+}
+
 type MetricsResponse = {
   range: MetricsRange
   sessions: number
   users: number
   top_sources: TopSourceRow[]
   top_pages: TopPageRow[]
+  traffic_sources: TrafficSourceRow[]
   lead_events: number
   lead_conversion_rate: number
   fetched_at: string
   cached: boolean
+}
+
+const TRAFFIC_SUGGESTED_ACTIONS: Record<TrafficCategory, string> = {
+  Paid: 'Review ad spend ROI -- are these leads converting?',
+  Email: 'Check which campaign drove this traffic',
+  'AI Assistant':
+    'AI tools are sending visitors -- your llms.txt is working',
+  'Listing Sites':
+    'Zillow and Realtor.com visitors -- make sure your profiles link here',
+  Social: 'Social traffic detected -- consider posting more listings',
+  'Google Search':
+    'Organic search working -- keep adding neighborhood content',
+  Referral: 'Someone linked to your site -- find out who and thank them',
+  'Direct / Bookmark':
+    'Direct visitors know your URL -- likely past clients or referrals',
 }
 
 function safeLog(
@@ -98,6 +130,7 @@ function isCachedMetricsPayload(
     typeof record.users === 'number' &&
     Array.isArray(record.top_sources) &&
     Array.isArray(record.top_pages) &&
+    Array.isArray(record.traffic_sources) &&
     typeof record.lead_events === 'number' &&
     typeof record.lead_conversion_rate === 'number' &&
     typeof record.fetched_at === 'string'
@@ -156,6 +189,117 @@ function parseTopPages(
     page_path: row.dimensionValues?.[1]?.value?.trim() || '/',
     views: Number(row.metricValues?.[0]?.value ?? 0) || 0,
   }))
+}
+
+function normalizeTrafficDimension(value: string | undefined): string {
+  const trimmed = (value ?? '').trim().toLowerCase()
+  if (!trimmed || trimmed === '(not set)') return ''
+  return trimmed
+}
+
+function classifyTrafficCategory(
+  referrerDomain: string,
+  utmSource: string,
+  utmMedium: string,
+): TrafficCategory {
+  const ref = normalizeTrafficDimension(referrerDomain)
+  const src = normalizeTrafficDimension(utmSource)
+  const med = normalizeTrafficDimension(utmMedium)
+
+  if (
+    med === 'cpc' ||
+    med === 'paid' ||
+    src.includes('google_ads') ||
+    src.includes('facebook_ads')
+  ) {
+    return 'Paid'
+  }
+
+  if (
+    med === 'email' ||
+    ref.includes('mail.') ||
+    ref.includes('outlook') ||
+    src === 'newsletter'
+  ) {
+    return 'Email'
+  }
+
+  const aiDomains = [
+    'chatgpt.com',
+    'perplexity.ai',
+    'claude.ai',
+    'gemini.google.com',
+    'copilot.microsoft.com',
+    'you.com',
+    'phind.com',
+  ]
+  if (src === 'ai_assistant' || aiDomains.some((domain) => ref.includes(domain))) {
+    return 'AI Assistant'
+  }
+
+  const listingDomains = [
+    'zillow.com',
+    'realtor.com',
+    'redfin.com',
+    'homes.com',
+    'trulia.com',
+  ]
+  if (listingDomains.some((domain) => ref.includes(domain))) {
+    return 'Listing Sites'
+  }
+
+  const socialDomains = [
+    'facebook.com',
+    'instagram.com',
+    'linkedin.com',
+    'twitter.com',
+    'x.com',
+    'tiktok.com',
+    'pinterest.com',
+  ]
+  if (socialDomains.some((domain) => ref.includes(domain))) {
+    return 'Social'
+  }
+
+  if (ref.includes('google.') && med !== 'cpc') {
+    return 'Google Search'
+  }
+
+  if (ref && ref !== 'direct') {
+    return 'Referral'
+  }
+
+  if ((!ref || ref === 'direct') && !src) {
+    return 'Direct / Bookmark'
+  }
+
+  return 'Referral'
+}
+
+function aggregateTrafficSources(
+  response: google.analytics.data.v1beta.IRunReportResponse,
+): TrafficSourceRow[] {
+  const totals = new Map<TrafficCategory, number>()
+
+  for (const row of response.rows ?? []) {
+    const referrerDomain = row.dimensionValues?.[0]?.value ?? ''
+    const utmSource = row.dimensionValues?.[1]?.value ?? ''
+    const utmMedium = row.dimensionValues?.[2]?.value ?? ''
+    const sessions = Number(row.metricValues?.[0]?.value ?? 0) || 0
+    if (sessions <= 0) continue
+
+    const category = classifyTrafficCategory(referrerDomain, utmSource, utmMedium)
+    totals.set(category, (totals.get(category) ?? 0) + sessions)
+  }
+
+  return [...totals.entries()]
+    .filter(([, sessions]) => sessions > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, sessions]) => ({
+      category,
+      sessions,
+      suggested_action: TRAFFIC_SUGGESTED_ACTIONS[category],
+    }))
 }
 
 function mapGaError(err: unknown): { statusCode: number; code: string } | null {
@@ -264,14 +408,28 @@ async function fetchGa4Metrics(
       limit: 5,
     })
 
+    const [trafficResponse] = await client.runReport({
+      property,
+      dateRanges,
+      dimensions: [
+        { name: 'referrer_domain' },
+        { name: 'utm_source' },
+        { name: 'utm_medium' },
+      ],
+      metrics: [{ name: 'sessions' }],
+      limit: 100,
+    })
+
     const sessions = parseMetricInt(summaryResponse, 0)
     const users = parseMetricInt(summaryResponse, 1)
+    const traffic_sources = aggregateTrafficSources(trafficResponse)
 
     safeLog('ga4_fetch_succeeded', {
       sessions,
       users,
       top_source_count: sourcesResponse.rows?.length ?? 0,
       top_page_count: pagesResponse.rows?.length ?? 0,
+      traffic_source_category_count: traffic_sources.length,
     })
 
     return {
@@ -281,6 +439,7 @@ async function fetchGa4Metrics(
         users,
         top_sources: parseTopSources(sourcesResponse),
         top_pages: parseTopPages(pagesResponse),
+        traffic_sources,
       },
     }
   } catch (err) {
