@@ -413,8 +413,7 @@ async function fetchGa4Metrics(
       dateRanges,
       dimensions: [
         { name: 'referrer_domain' },
-        { name: 'utm_source' },
-        { name: 'utm_medium' },
+        { name: 'utm_source_captured' },
       ],
       metrics: [{ name: 'sessions' }],
       limit: 100,
@@ -451,7 +450,10 @@ async function fetchGa4Metrics(
       })
       return { ok: false, statusCode: mapped.statusCode, code: mapped.code }
     }
-    safeLog('ga4_fetch_failed', { reason: 'unexpected' })
+    safeLog('ga4_fetch_failed', {
+      reason: 'unexpected',
+      message: err instanceof Error ? err.message : String(err),
+    })
     return { ok: false, statusCode: 500, code: 'internal_error' }
   }
 }
