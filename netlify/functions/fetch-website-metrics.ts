@@ -412,8 +412,8 @@ async function fetchGa4Metrics(
       property,
       dateRanges,
       dimensions: [
-        { name: 'referrer_domain' },
-        { name: 'utm_source_captured' },
+        { name: 'customEvent:referrer_domain' },
+        { name: 'customEvent:utm_source_captured' },
       ],
       metrics: [{ name: 'sessions' }],
       limit: 100,
