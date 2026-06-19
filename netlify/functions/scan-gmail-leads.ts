@@ -7,8 +7,7 @@ import { getServiceSupabase } from './google-oauth-shared'
 
 const LOG_MODULE = 'scan-gmail-leads'
 
-const GMAIL_LIST_QUERY =
-  'from:noreply@zillow.com OR from:contact@realtor.com OR from:leads@realtor.com'
+const GMAIL_LIST_QUERY = 'from:leads@email.realtor.com'
 
 const ZILLOW_FROM = 'noreply@zillow.com'
 const REALTOR_FROMS = new Set(['contact@realtor.com', 'leads@realtor.com'])
