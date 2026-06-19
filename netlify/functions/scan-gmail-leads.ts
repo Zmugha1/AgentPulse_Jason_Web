@@ -10,10 +10,14 @@ const LOG_MODULE = 'scan-gmail-leads'
 const GMAIL_LIST_QUERY = 'from:leads@email.realtor.com'
 
 const ZILLOW_FROM = 'noreply@zillow.com'
-const REALTOR_FROMS = new Set(['contact@realtor.com', 'leads@realtor.com'])
+const REALTOR_FROMS = new Set([
+  'contact@realtor.com',
+  'leads@realtor.com',
+  'leads@email.realtor.com',
+])
 
 const ZILLOW_SUBJECT_PATTERNS = [/new contact from/i, /is interested in/i]
-const REALTOR_SUBJECT_PATTERNS = [/new lead/i, /contacted you about/i]
+const REALTOR_SUBJECT_PATTERNS = [/new realtor\.com lead/i, /new lead/i, /contacted you about/i]
 
 export type GmailLeadSource = 'zillow' | 'realtor.com'
 
@@ -25,6 +29,7 @@ export type ParsedGmailLead = {
   phone: string | null
   address: string | null
   purpose: string | null
+  budget_max: number | null
   original_lead_date: string
 }
 
@@ -266,6 +271,7 @@ export function parseZillowLeadEmail(input: {
     phone,
     address,
     purpose,
+    budget_max: null,
     original_lead_date: receivedAt,
   }
 }
@@ -276,45 +282,60 @@ export function parseRealtorLeadEmail(input: {
   receivedAt: string
 }): ParsedGmailLead | null {
   const { subject, body, receivedAt } = input
+  const text = body.replace(/\r\n/g, '\n')
 
-  let fullName =
-    extractLabeledField(body, ['name', 'lead name', 'contact name']) ??
-    subject.match(/new lead[:\s-]+(.+?)(?:\s+contacted\b|$)/i)?.[1]?.trim() ??
-    subject.match(/^(.+?)\s+contacted you about/i)?.[1]?.trim() ??
+  let original_lead_date = receivedAt
+  const dateMatch = text.match(
+    /([A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:am|pm))/i,
+  )
+  if (dateMatch) {
+    const parsed = new Date(dateMatch[1])
+    if (!Number.isNaN(parsed.getTime())) {
+      original_lead_date = parsed.toISOString()
+    }
+  }
+
+  const first_name =
+    text.match(/^Name\s+(.+)$/im)?.[1]?.trim() ??
+    subject.match(/new realtor\.com lead\s*[-–]\s*(.+)$/i)?.[1]?.trim() ??
     null
 
-  const { first_name, last_name } = splitName(fullName)
-  const email =
-    extractLabeledField(body, ['email', 'e-mail']) ?? extractEmail(body)
-  const phone = extractPhone(body)
-  const address =
-    extractLabeledField(body, [
-      'property',
-      'address',
-      'listing',
-      'property address',
-    ]) ??
-    subject.match(/contacted you about\s+(.+)$/i)?.[1]?.trim() ??
-    extractLabeledField(body, ['message', 'notes', 'comments']) ??
-    null
+  const purposeMatch = text.match(
+    /(?:am|pm)\s*\n\s*["']?(.+?)["']?\s*\n\s*Name\s+/is,
+  )
+  const purpose = purposeMatch?.[1]?.trim() ?? null
+
+  const phoneLine = text.match(/\n(\d{3}-\d{3}-\d{4})\s*\n/i)?.[1]
+  const phone = phoneLine ?? extractPhone(text)
+
+  const email = extractEmail(text)
+
+  const addressMatch = text.match(
+    /MLS ID\s*#\d+\s*\n\s*(.+?)\s*\n\s*\$[\d,]+/is,
+  )
+  const address = addressMatch?.[1]?.trim() ?? null
+
+  let budget_max: number | null = null
+  const priceMatch = text.match(/\$([\d,]+)/)
+  if (priceMatch) {
+    const parsed = Number(priceMatch[1].replace(/,/g, ''))
+    budget_max = Number.isFinite(parsed) ? parsed : null
+  }
 
   if (!first_name && !email && !phone) {
     return null
   }
 
-  const purpose = address
-    ? `Realtor.com inquiry: ${address}`
-    : 'Realtor.com lead notification'
-
   return {
     source: 'realtor.com',
     first_name,
-    last_name,
+    last_name: null,
     email,
     phone,
     address,
     purpose,
-    original_lead_date: receivedAt,
+    budget_max,
+    original_lead_date,
   }
 }
 
@@ -375,7 +396,7 @@ function mapParsedLead(parsed: ParsedGmailLead): LeadInsertRow {
     score: 0,
     status: 'cold',
     has_home_to_sell: null,
-    budget_max: null,
+    budget_max: parsed.budget_max,
     listing_price: null,
     purpose: parsed.purpose,
     is_archived: false,
