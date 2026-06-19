@@ -9,17 +9,11 @@ const LOG_MODULE = 'scan-gmail-leads'
 
 const GMAIL_LIST_QUERY = 'from:leads@email.realtor.com'
 
-const ZILLOW_FROM = 'noreply@zillow.com'
-const REALTOR_FROMS = new Set([
-  'contact@realtor.com',
-  'leads@realtor.com',
-  'leads@email.realtor.com',
-])
+const REALTOR_FROMS = new Set(['leads@email.realtor.com'])
 
-const ZILLOW_SUBJECT_PATTERNS = [/new contact from/i, /is interested in/i]
 const REALTOR_SUBJECT_PATTERNS = [/new realtor\.com lead/i, /new lead/i, /contacted you about/i]
 
-export type GmailLeadSource = 'zillow' | 'realtor.com'
+export type GmailLeadSource = 'realtor.com'
 
 export type ParsedGmailLead = {
   source: GmailLeadSource
@@ -207,12 +201,6 @@ export function classifyGmailLeadSource(
   subject: string,
 ): GmailLeadSource | null {
   const from = parseFromEmail(fromHeader)
-  if (from === ZILLOW_FROM) {
-    if (ZILLOW_SUBJECT_PATTERNS.some((re) => re.test(subject))) {
-      return 'zillow'
-    }
-    return null
-  }
   if (REALTOR_FROMS.has(from)) {
     if (REALTOR_SUBJECT_PATTERNS.some((re) => re.test(subject))) {
       return 'realtor.com'
@@ -220,60 +208,6 @@ export function classifyGmailLeadSource(
     return null
   }
   return null
-}
-
-export function parseZillowLeadEmail(input: {
-  subject: string
-  body: string
-  receivedAt: string
-}): ParsedGmailLead | null {
-  const { subject, body, receivedAt } = input
-  const combined = `${subject}\n${body}`
-
-  let fullName =
-    extractLabeledField(body, ['name', 'contact name', 'lead name']) ??
-    subject.match(/new contact from\s+(.+?)(?:\s+on\b|$)/i)?.[1]?.trim() ??
-    subject.match(/^(.+?)\s+is interested in/i)?.[1]?.trim() ??
-    null
-
-  if (fullName) {
-    fullName = fullName.replace(/\s+on\s+.+$/i, '').trim()
-  }
-
-  const { first_name, last_name } = splitName(fullName)
-  const email =
-    extractLabeledField(body, ['email', 'e-mail']) ?? extractEmail(body)
-  const phone = extractPhone(body)
-  const address =
-    extractLabeledField(body, [
-      'property',
-      'address',
-      'listing',
-      'home',
-      'property address',
-    ]) ??
-    subject.match(/is interested in\s+(.+)$/i)?.[1]?.trim() ??
-    null
-
-  if (!first_name && !email && !phone) {
-    return null
-  }
-
-  const purpose = address
-    ? `Zillow inquiry: ${address}`
-    : 'Zillow lead notification'
-
-  return {
-    source: 'zillow',
-    first_name,
-    last_name,
-    email,
-    phone,
-    address,
-    purpose,
-    budget_max: null,
-    original_lead_date: receivedAt,
-  }
 }
 
 export function parseRealtorLeadEmail(input: {
@@ -346,9 +280,6 @@ export function parseGmailLeadNotification(input: {
   receivedAt: string
 }): ParsedGmailLead | null {
   const source = classifyGmailLeadSource(input.fromHeader, input.subject)
-  if (source === 'zillow') {
-    return parseZillowLeadEmail(input)
-  }
   if (source === 'realtor.com') {
     return parseRealtorLeadEmail(input)
   }
