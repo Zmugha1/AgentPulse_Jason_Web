@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
+import { getStageLabel } from '../lib/pipelineStages'
 import LeadPurposeEditor from './LeadPurposeEditor'
 import LeadStageEditor from './LeadStageEditor'
 
@@ -90,10 +91,11 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 function StageBadge({ stage }: { stage: string | null }) {
-  const label = stage ?? 'new'
+  const value = stage ?? 'new'
+  const label = getStageLabel(value)
   return (
     <span
-      className={`font-label rounded px-2 py-0.5 text-[10px] uppercase ${stageStyles(stage)}`}
+      className={`font-label rounded px-2 py-0.5 text-[10px] ${stageStyles(stage)}`}
     >
       {label}
     </span>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
+import { getStageLabel } from '../lib/pipelineStages'
 import ActionButtons, { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
 import { logInteraction } from '../services/interactionsService'
 import { updateLeadStage } from '../services/leadsService'
@@ -55,7 +56,7 @@ function briefReason(lead: Lead): string {
   }
 
   if ((lead.pipeline_stage ?? 'new') !== 'new') {
-    parts.push(`stage: ${lead.pipeline_stage}`)
+    parts.push(`stage: ${getStageLabel(lead.pipeline_stage ?? 'new')}`)
   }
 
   return parts.length ? parts.join(', ') : 'active pipeline lead'

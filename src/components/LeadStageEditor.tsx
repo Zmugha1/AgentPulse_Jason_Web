@@ -1,18 +1,7 @@
 import { useState } from 'react'
-import type { Lead, PipelineStage } from '../lib/types'
+import type { Lead } from '../lib/types'
+import { PIPELINE_STAGES } from '../lib/pipelineStages'
 import { updateLeadStage } from '../services/leadsService'
-
-const PIPELINE_STAGES: PipelineStage[] = [
-  'new',
-  'contacted',
-  'attempted',
-  'nurture',
-  'appointment',
-  'showing',
-  'offer',
-  'closed',
-  'dead',
-]
 
 type LeadStageEditorProps = {
   lead: Lead
@@ -53,8 +42,8 @@ export default function LeadStageEditor({
         onChange={(e) => void handleChange(e.target.value)}
       >
         {PIPELINE_STAGES.map((stage) => (
-          <option key={stage} value={stage}>
-            {stage}
+          <option key={stage.value} value={stage.value}>
+            {stage.label}
           </option>
         ))}
       </select>

@@ -1,21 +1,11 @@
+import { PIPELINE_STAGES } from '../lib/pipelineStages'
+
 export type LeadFiltersState = {
   search: string
   status: string
   pipelineStage: string
   source: string
 }
-
-const PIPELINE_STAGES = [
-  'new',
-  'contacted',
-  'attempted',
-  'nurture',
-  'appointment',
-  'showing',
-  'offer',
-  'closed',
-  'dead',
-] as const
 
 const SOURCES = [
   { value: 'zillow', label: 'Zillow' },
@@ -88,8 +78,8 @@ export default function LeadFilters({ filters, onChange }: LeadFiltersProps) {
           >
             <option value="all">All stages</option>
             {PIPELINE_STAGES.map((stage) => (
-              <option key={stage} value={stage}>
-                {stage}
+              <option key={stage.value} value={stage.value}>
+                {stage.label}
               </option>
             ))}
           </select>
