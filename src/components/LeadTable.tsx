@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Lead, LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
 import { getStageLabel } from '../lib/pipelineStages'
+import LeadActionButtons from './LeadActionButtons'
 import LeadPurposeEditor from './LeadPurposeEditor'
 import LeadStageEditor from './LeadStageEditor'
 
@@ -183,7 +184,10 @@ export default function LeadTable({
                 Days in
               </th>
               {(onArchive || onUnarchive) && (
-                <th className="px-3 py-2 font-normal text-right">Actions</th>
+                <th className="px-3 py-2 font-normal text-right">Archive</th>
+              )}
+              {onLeadUpdated && (
+                <th className="px-3 py-2 font-normal text-right">Quick actions</th>
               )}
             </tr>
           </thead>
@@ -260,6 +264,17 @@ export default function LeadTable({
                         >
                           Archive
                         </button>
+                      ) : null}
+                    </td>
+                  )}
+                  {onLeadUpdated && (
+                    <td className="px-3 py-2 text-right align-top">
+                      {!isArchived ? (
+                        <LeadActionButtons
+                          lead={lead}
+                          onLeadUpdated={onLeadUpdated}
+                          disabled={rowBusy}
+                        />
                       ) : null}
                     </td>
                   )}
