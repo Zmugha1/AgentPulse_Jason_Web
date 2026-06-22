@@ -12,10 +12,6 @@ function displayName(lead: Lead): string {
   return name || lead.email || lead.phone || 'Lead'
 }
 
-function buildMailtoLink(email: string, subject: string, body: string): string {
-  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-}
-
 function hasUsableEmail(email: string | null): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
 }
@@ -91,6 +87,10 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
 
   const emailOk = hasUsableEmail(lead.email)
 
+  const mailtoHref = lead.email
+    ? `mailto:${lead.email.trim()}?subject=${encodeURIComponent(subject.trim())}&body=${encodeURIComponent(body.trim())}`
+    : null
+
   async function handleCopyBody() {
     if (!body.trim()) return
     try {
@@ -100,16 +100,6 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
     } catch {
       setError('Could not copy to clipboard')
     }
-  }
-
-  function handleOpenGmail() {
-    if (!lead.email || !subject.trim() || !body.trim()) return
-    const mailtoLink = buildMailtoLink(
-      lead.email.trim(),
-      subject.trim(),
-      body.trim(),
-    )
-    window.open(mailtoLink, '_blank')
   }
 
   return (
@@ -189,14 +179,19 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
               {copied ? 'Copied' : 'Copy body'}
             </button>
           ) : null}
-          {emailOk && subject.trim() && body.trim() && !loading && !error ? (
-            <button
-              type="button"
-              onClick={handleOpenGmail}
-              className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy"
-            >
-              Open in Gmail
-            </button>
+          {!loading && !error ? (
+            mailtoHref ? (
+              <a
+                href={mailtoHref}
+                className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy inline-flex items-center"
+              >
+                Open in Gmail
+              </a>
+            ) : (
+              <span className="font-body text-sm text-slate">
+                No email address on file
+              </span>
+            )
           ) : null}
         </div>
       </div>
