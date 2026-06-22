@@ -12,12 +12,8 @@ function displayName(lead: Lead): string {
   return name || lead.email || lead.phone || 'Lead'
 }
 
-function formatMailtoHref(email: string, subject: string, body: string): string {
-  const params = new URLSearchParams({
-    subject,
-    body,
-  })
-  return `mailto:${encodeURIComponent(email)}?${params.toString()}`
+function buildMailtoLink(email: string, subject: string, body: string): string {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
 function hasUsableEmail(email: string | null): boolean {
@@ -106,6 +102,16 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
     }
   }
 
+  function handleOpenGmail() {
+    if (!lead.email || !subject.trim() || !body.trim()) return
+    const mailtoLink = buildMailtoLink(
+      lead.email.trim(),
+      subject.trim(),
+      body.trim(),
+    )
+    window.open(mailtoLink, '_blank')
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-navy/40 p-0 sm:p-4"
@@ -184,12 +190,13 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
             </button>
           ) : null}
           {emailOk && subject.trim() && body.trim() && !loading && !error ? (
-            <a
-              href={formatMailtoHref(lead.email!, subject.trim(), body.trim())}
-              className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy inline-flex items-center"
+            <button
+              type="button"
+              onClick={handleOpenGmail}
+              className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy"
             >
               Open in Gmail
-            </a>
+            </button>
           ) : null}
         </div>
       </div>
