@@ -149,6 +149,7 @@ function buildSmsPrompt(voiceProfile: string, lead: LeadRow): string {
     '- Sound like the agent wrote it personally, not a CRM template.',
     '- Reference something specific about this lead.',
     '- Return ONLY the SMS text. No quotes, labels, or explanation.',
+    '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
   ].join('\n')
 }
 

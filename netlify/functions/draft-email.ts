@@ -161,6 +161,7 @@ function buildEmailPrompt(voiceProfile: string, lead: LeadRow): string {
     '- Reference something specific about this lead.',
     '- Return JSON only, no markdown fences:',
     '{"subject":"...","body":"..."}',
+    '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
   ].join('\n')
 }
 

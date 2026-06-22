@@ -169,6 +169,7 @@ function buildCallScriptPrompt(voiceProfile: string, lead: LeadRow): string {
     '- Natural conversational language.',
     '- Return only valid JSON with keys: opening, reference, question_1, question_2, close.',
     '- No markdown. No preamble.',
+    '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
   ].join('\n')
 }
 
