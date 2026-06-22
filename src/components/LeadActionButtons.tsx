@@ -4,6 +4,7 @@ import { logInteraction } from '../services/interactionsService'
 import { updateLeadStage } from '../services/leadsService'
 import { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
 import SmsModal from './SmsModal'
+import EmailModal from './EmailModal'
 
 const STAGE_BY_OUTCOME: Record<string, string> = {
   called: 'contacted',
@@ -30,6 +31,7 @@ export default function LeadActionButtons({
   const [successKey, setSuccessKey] = useState<BriefAction | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [smsOpen, setSmsOpen] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
 
   async function handleAction(actionKey: BriefAction) {
     const action = BRIEF_ACTIONS.find((item) => item.key === actionKey)
@@ -71,6 +73,9 @@ export default function LeadActionButtons({
       {smsOpen ? (
         <SmsModal lead={lead} onClose={() => setSmsOpen(false)} />
       ) : null}
+      {emailOpen ? (
+        <EmailModal lead={lead} onClose={() => setEmailOpen(false)} />
+      ) : null}
       <details className="md:hidden">
         <summary className="font-label text-xs text-teal cursor-pointer list-none">
           Actions
@@ -81,6 +86,12 @@ export default function LeadActionButtons({
             succeeded={false}
             disabled={busy || disabled}
             onClick={() => setSmsOpen(true)}
+          />
+          <ActionButton
+            label="Email"
+            succeeded={false}
+            disabled={busy || disabled}
+            onClick={() => setEmailOpen(true)}
           />
           {BRIEF_ACTIONS.map((action) => (
             <ActionButton
@@ -93,12 +104,18 @@ export default function LeadActionButtons({
           ))}
         </div>
       </details>
-      <div className="hidden md:flex flex-wrap gap-1 max-w-[320px]">
+      <div className="hidden md:flex flex-wrap gap-1 max-w-[360px]">
         <ActionButton
           label="Text"
           succeeded={false}
           disabled={busy || disabled}
           onClick={() => setSmsOpen(true)}
+        />
+        <ActionButton
+          label="Email"
+          succeeded={false}
+          disabled={busy || disabled}
+          onClick={() => setEmailOpen(true)}
         />
         {BRIEF_ACTIONS.map((action) => (
           <ActionButton

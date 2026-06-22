@@ -14,7 +14,7 @@ export const BRIEF_ACTIONS: {
   { key: 'called', label: 'Called', type: 'call', outcome: 'called' },
   { key: 'voicemail', label: 'Voicemail', type: 'call', outcome: 'voicemail' },
   { key: 'no_answer', label: 'No Answer', type: 'call', outcome: 'no_answer' },
-  { key: 'emailed', label: 'Emailed', type: 'email', outcome: 'emailed' },
+  { key: 'emailed', label: 'Log Email', type: 'email', outcome: 'emailed' },
   {
     key: 'not_interested',
     label: 'Not Interested',
