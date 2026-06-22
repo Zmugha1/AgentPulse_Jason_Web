@@ -3,6 +3,7 @@ import type { Lead } from '../lib/types'
 import { logInteraction } from '../services/interactionsService'
 import { updateLeadStage } from '../services/leadsService'
 import { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
+import SmsModal from './SmsModal'
 
 const STAGE_BY_OUTCOME: Record<string, string> = {
   called: 'contacted',
@@ -28,6 +29,7 @@ export default function LeadActionButtons({
   const [busy, setBusy] = useState(false)
   const [successKey, setSuccessKey] = useState<BriefAction | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [smsOpen, setSmsOpen] = useState(false)
 
   async function handleAction(actionKey: BriefAction) {
     const action = BRIEF_ACTIONS.find((item) => item.key === actionKey)
@@ -66,11 +68,20 @@ export default function LeadActionButtons({
 
   return (
     <div onClick={(e) => e.stopPropagation()} className="space-y-1">
+      {smsOpen ? (
+        <SmsModal lead={lead} onClose={() => setSmsOpen(false)} />
+      ) : null}
       <details className="md:hidden">
         <summary className="font-label text-xs text-teal cursor-pointer list-none">
           Actions
         </summary>
         <div className="mt-2 flex flex-col gap-1">
+          <ActionButton
+            label="Text"
+            succeeded={false}
+            disabled={busy || disabled}
+            onClick={() => setSmsOpen(true)}
+          />
           {BRIEF_ACTIONS.map((action) => (
             <ActionButton
               key={action.key}
@@ -82,7 +93,13 @@ export default function LeadActionButtons({
           ))}
         </div>
       </details>
-      <div className="hidden md:flex flex-wrap gap-1 max-w-[280px]">
+      <div className="hidden md:flex flex-wrap gap-1 max-w-[320px]">
+        <ActionButton
+          label="Text"
+          succeeded={false}
+          disabled={busy || disabled}
+          onClick={() => setSmsOpen(true)}
+        />
         {BRIEF_ACTIONS.map((action) => (
           <ActionButton
             key={action.key}
