@@ -58,6 +58,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/draft-call-script"
+  to = "/.netlify/functions/draft-call-script"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

@@ -5,6 +5,7 @@ import { updateLeadStage } from '../services/leadsService'
 import { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
 import SmsModal from './SmsModal'
 import EmailModal from './EmailModal'
+import CallScriptModal from './CallScriptModal'
 
 const STAGE_BY_OUTCOME: Record<string, string> = {
   called: 'contacted',
@@ -32,6 +33,7 @@ export default function LeadActionButtons({
   const [error, setError] = useState<string | null>(null)
   const [smsOpen, setSmsOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+  const [callPrepOpen, setCallPrepOpen] = useState(false)
 
   async function handleAction(actionKey: BriefAction) {
     const action = BRIEF_ACTIONS.find((item) => item.key === actionKey)
@@ -68,6 +70,36 @@ export default function LeadActionButtons({
     }
   }
 
+  const outreachButtons = (
+    <>
+      <OutreachButton
+        label="Text"
+        disabled={busy || disabled}
+        onClick={() => setSmsOpen(true)}
+      />
+      <OutreachButton
+        label="Email"
+        disabled={busy || disabled}
+        onClick={() => setEmailOpen(true)}
+      />
+      <OutreachButton
+        label="Call Prep"
+        disabled={busy || disabled}
+        onClick={() => setCallPrepOpen(true)}
+      />
+    </>
+  )
+
+  const pipelineButtons = BRIEF_ACTIONS.map((action) => (
+    <PipelineButton
+      key={action.key}
+      label={action.label}
+      succeeded={successKey === action.key}
+      disabled={busy || disabled}
+      onClick={() => void handleAction(action.key)}
+    />
+  ))
+
   return (
     <div onClick={(e) => e.stopPropagation()} className="space-y-1">
       {smsOpen ? (
@@ -76,57 +108,25 @@ export default function LeadActionButtons({
       {emailOpen ? (
         <EmailModal lead={lead} onClose={() => setEmailOpen(false)} />
       ) : null}
+      {callPrepOpen ? (
+        <CallScriptModal lead={lead} onClose={() => setCallPrepOpen(false)} />
+      ) : null}
+
       <details className="md:hidden">
         <summary className="font-label text-xs text-teal cursor-pointer list-none">
           Actions
         </summary>
-        <div className="mt-2 flex flex-col gap-1">
-          <ActionButton
-            label="Text"
-            succeeded={false}
-            disabled={busy || disabled}
-            onClick={() => setSmsOpen(true)}
-          />
-          <ActionButton
-            label="Email"
-            succeeded={false}
-            disabled={busy || disabled}
-            onClick={() => setEmailOpen(true)}
-          />
-          {BRIEF_ACTIONS.map((action) => (
-            <ActionButton
-              key={action.key}
-              label={action.label}
-              succeeded={successKey === action.key}
-              disabled={busy || disabled}
-              onClick={() => void handleAction(action.key)}
-            />
-          ))}
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-col gap-1">{outreachButtons}</div>
+          <div className="flex flex-col gap-1">{pipelineButtons}</div>
         </div>
       </details>
-      <div className="hidden md:flex flex-wrap gap-1 max-w-[360px]">
-        <ActionButton
-          label="Text"
-          succeeded={false}
-          disabled={busy || disabled}
-          onClick={() => setSmsOpen(true)}
-        />
-        <ActionButton
-          label="Email"
-          succeeded={false}
-          disabled={busy || disabled}
-          onClick={() => setEmailOpen(true)}
-        />
-        {BRIEF_ACTIONS.map((action) => (
-          <ActionButton
-            key={action.key}
-            label={action.label}
-            succeeded={successKey === action.key}
-            disabled={busy || disabled}
-            onClick={() => void handleAction(action.key)}
-          />
-        ))}
+
+      <div className="hidden md:block space-y-1 max-w-[360px]">
+        <div className="flex flex-wrap gap-1">{outreachButtons}</div>
+        <div className="flex flex-wrap gap-1">{pipelineButtons}</div>
       </div>
+
       {error ? (
         <p className="font-body text-coral text-[10px]" role="alert">
           {error}
@@ -136,7 +136,29 @@ export default function LeadActionButtons({
   )
 }
 
-function ActionButton({
+function OutreachButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={label}
+      onClick={onClick}
+      className="font-label text-[10px] px-2 py-1 rounded border border-teal text-white bg-teal min-h-[32px] disabled:opacity-50 hover:bg-navy hover:border-navy transition-colors"
+    >
+      {label}
+    </button>
+  )
+}
+
+function PipelineButton({
   label,
   succeeded,
   disabled,
@@ -156,7 +178,7 @@ function ActionButton({
       className={`font-label text-[10px] px-2 py-1 rounded border min-h-[32px] disabled:opacity-50 transition-colors ${
         succeeded
           ? 'border-teal bg-teal text-white'
-          : 'border-mint text-slate bg-white hover:border-teal hover:text-teal'
+          : 'border-mint text-slate bg-white hover:border-slate hover:text-navy'
       }`}
     >
       {succeeded ? '✓' : label}
