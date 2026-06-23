@@ -286,7 +286,7 @@ function buildWebResearchUserPrompt(lead: LeadRow): string {
     '  "employer": string | null,',
     '  "linkedin_url": string | null,',
     '  "life_signals": string | null,',
-    '  "summary": string',
+    '  "summary": Write exactly 2-3 sentences. Lead with the single most actionable insight. Use plain conversational language. Sound like a colleague briefing a realtor before a call, not a research analyst writing a report. No jargon. No caveats. No recommendations for paid tools. If little public data exists, say so in one sentence and note the strongest behavioral signal instead.',
     '}',
   ].join('\n')
 }
