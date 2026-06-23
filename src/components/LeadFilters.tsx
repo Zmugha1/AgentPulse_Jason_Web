@@ -1,4 +1,5 @@
 import { PIPELINE_STAGES } from '../lib/pipelineStages'
+import { LEAD_SOURCE_FILTER_OPTIONS } from '../lib/leadSources'
 
 export type LeadFiltersState = {
   search: string
@@ -6,12 +7,6 @@ export type LeadFiltersState = {
   pipelineStage: string
   source: string
 }
-
-const SOURCES = [
-  { value: 'zillow', label: 'Zillow' },
-  { value: 'realtor_com_full', label: 'Realtor full' },
-  { value: 'realtor_com_contacts', label: 'Realtor contacts' },
-] as const
 
 type LeadFiltersProps = {
   filters: LeadFiltersState
@@ -95,8 +90,7 @@ export default function LeadFilters({ filters, onChange }: LeadFiltersProps) {
             onChange={(e) => update('source', e.target.value)}
             className={selectClass}
           >
-            <option value="all">All sources</option>
-            {SOURCES.map((item) => (
+            {LEAD_SOURCE_FILTER_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
               </option>

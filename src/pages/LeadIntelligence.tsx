@@ -3,6 +3,7 @@ import AddLeadModal from '../components/AddLeadModal'
 import LeadFilters, { type LeadFiltersState } from '../components/LeadFilters'
 import LeadTable, { sortLeadsByScoreThenDate } from '../components/LeadTable'
 import type { Lead } from '../lib/types'
+import { matchesSourceFilter } from '../lib/leadSources'
 import {
   archiveLead,
   getAllLeads,
@@ -32,7 +33,7 @@ function matchesFilters(lead: Lead, filters: LeadFiltersState): boolean {
   ) {
     return false
   }
-  if (filters.source !== 'all' && (lead.source ?? '') !== filters.source) {
+  if (!matchesSourceFilter(lead.source, filters.source)) {
     return false
   }
 

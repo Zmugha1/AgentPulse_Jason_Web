@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { Lead } from '../lib/types'
 import { supabase } from '../lib/supabase'
+import SourceBadge from './SourceBadge'
 
 type LeadEnrichmentModalProps = {
   lead: Lead
@@ -49,13 +50,6 @@ function displayName(lead: Lead): string {
 
 function firstName(lead: Lead): string {
   return lead.first_name?.trim() || 'this contact'
-}
-
-function formatSource(source: string | null): string {
-  if (!source) return 'unknown'
-  if (source === 'realtor_com_full') return 'realtor full'
-  if (source === 'realtor_com_contacts') return 'realtor contacts'
-  return source
 }
 
 function formatResearchTimestamp(iso: string): string {
@@ -248,9 +242,7 @@ export default function LeadEnrichmentModal({
               {displayName(lead)}
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-label rounded px-2 py-0.5 text-[10px] uppercase bg-teal/15 text-teal">
-                {formatSource(lead.source)}
-              </span>
+              <SourceBadge source={lead.source} size="sm" />
               {result ? (
                 <span className="font-body text-xs text-slate">
                   {formatResearchTimestamp(result.enriched_at)}

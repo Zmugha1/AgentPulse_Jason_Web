@@ -5,6 +5,7 @@ import { getStageLabel } from '../lib/pipelineStages'
 import LeadActionButtons from './LeadActionButtons'
 import LeadPurposeEditor from './LeadPurposeEditor'
 import LeadStageEditor from './LeadStageEditor'
+import SourceBadge from './SourceBadge'
 
 /** Score DESC, then original_lead_date ASC (oldest first). Matches Morning Brief. */
 export function sortLeadsByScoreThenDate(leads: Lead[]): Lead[] {
@@ -52,14 +53,6 @@ function hasUsablePhone(phone: string | null): boolean {
 
 function hasUsableEmail(email: string | null): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-}
-
-function formatSource(source: string | null): string {
-  if (!source) return 'unknown'
-  if (source === 'realtor_com_full') return 'realtor full'
-  if (source === 'realtor_com_contacts') return 'realtor contacts'
-  if (source === 'manual') return 'manual'
-  return source
 }
 
 function statusStyles(status: string | null): string {
@@ -217,8 +210,8 @@ export default function LeadTable({
                   <td className="px-3 py-2">
                     <ContactCell lead={lead} />
                   </td>
-                  <td className="px-3 py-2 text-navy">
-                    {formatSource(lead.source)}
+                  <td className="px-3 py-2">
+                    <SourceBadge source={lead.source} size="sm" />
                   </td>
                   <td className="px-3 py-2 align-top">
                     {onLeadUpdated ? (
