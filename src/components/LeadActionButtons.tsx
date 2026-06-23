@@ -6,6 +6,7 @@ import { BRIEF_ACTIONS, type BriefAction } from './ActionButtons'
 import SmsModal from './SmsModal'
 import EmailModal from './EmailModal'
 import CallScriptModal from './CallScriptModal'
+import LeadEnrichmentModal from './LeadEnrichmentModal'
 
 const STAGE_BY_OUTCOME: Record<string, string> = {
   called: 'contacted',
@@ -34,6 +35,7 @@ export default function LeadActionButtons({
   const [smsOpen, setSmsOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
   const [callPrepOpen, setCallPrepOpen] = useState(false)
+  const [findMoreOpen, setFindMoreOpen] = useState(false)
 
   async function handleAction(actionKey: BriefAction) {
     const action = BRIEF_ACTIONS.find((item) => item.key === actionKey)
@@ -87,6 +89,11 @@ export default function LeadActionButtons({
         disabled={busy || disabled}
         onClick={() => setCallPrepOpen(true)}
       />
+      <OutreachButton
+        label="Find More"
+        disabled={busy || disabled}
+        onClick={() => setFindMoreOpen(true)}
+      />
     </>
   )
 
@@ -110,6 +117,12 @@ export default function LeadActionButtons({
       ) : null}
       {callPrepOpen ? (
         <CallScriptModal lead={lead} onClose={() => setCallPrepOpen(false)} />
+      ) : null}
+      {findMoreOpen ? (
+        <LeadEnrichmentModal
+          lead={lead}
+          onClose={() => setFindMoreOpen(false)}
+        />
       ) : null}
 
       <details className="md:hidden">

@@ -63,6 +63,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/enrich-lead"
+  to = "/.netlify/functions/enrich-lead"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
