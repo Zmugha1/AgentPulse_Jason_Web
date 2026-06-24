@@ -17,26 +17,6 @@ export function leadAgeDays(lead: Lead): number | null {
   return daysSince(lead.original_lead_date)
 }
 
-function priceSignal(lead: Lead): number {
-  const price = lead.budget_max ?? lead.listing_price
-  if (price === null || price === undefined) return 1
-  if (price >= 800_000) return 4
-  if (price >= 600_000) return 3
-  if (price >= 450_000) return 2
-  if (price >= 300_000) return 1
-  return 0
-}
-
-function recencySignal(lead: Lead): number {
-  const age = leadAgeDays(lead)
-  if (age === null) return 1
-  const months = age / 30.4375
-  if (months <= 6) return 3
-  if (months <= 18) return 2
-  if (months <= 36) return 1
-  return 0
-}
-
 function hasUsablePhone(phone: string | null): boolean {
   return Boolean(phone && phone.replace(/\D/g, '').length >= 10)
 }
@@ -45,44 +25,125 @@ function hasUsableEmail(email: string | null): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
 }
 
-function contactabilitySignal(lead: Lead): number {
-  return hasUsablePhone(lead.phone) && hasUsableEmail(lead.email) ? 1 : 0
+const HOT_SOURCES = new Set([
+  'realtor.com',
+  'realtor_com_full',
+  'realtor_contacts',
+  'realtor_com_connections_plus',
+  'website_chatbot',
+  'website_valuation',
+])
+
+const WARM_SOURCES = new Set([
+  'website_newsletter',
+  'website_ai_referral',
+  'referral_past_client',
+])
+
+function normalizeSource(source: string | null): string {
+  return (source ?? '').trim().toLowerCase()
+}
+
+function sourceQualitySignal(lead: Lead): number {
+  const source = normalizeSource(lead.source)
+  if (HOT_SOURCES.has(source)) return 4
+  if (WARM_SOURCES.has(source)) return 2
+  return 0
+}
+
+function recencySignal(lead: Lead): number {
+  const ageDays = leadAgeDays(lead)
+  if (ageDays === null) return 0
+  if (ageDays <= 7) return 4
+  if (ageDays <= 30) return 3
+  if (ageDays <= 90) return 2
+  if (ageDays <= 365) return 1
+  return 0
+}
+
+function contactInfoSignal(lead: Lead): number {
+  const hasPhone = hasUsablePhone(lead.phone)
+  const hasEmail = hasUsableEmail(lead.email)
+  if (hasPhone && hasEmail) return 2
+  if (hasPhone || hasEmail) return 1
+  return -2
+}
+
+function hasPurposeNotes(lead: Lead): boolean {
+  const purpose = lead.purpose?.trim()
+  if (!purpose) return false
+  return purpose.toLowerCase() !== 'not set'
+}
+
+function pipelineStageEngagementSignal(lead: Lead): number {
+  const stage = (lead.pipeline_stage ?? 'new').toLowerCase()
+  if (stage === 'contacted' || stage === 'appointment' || stage === 'showing') {
+    return 3
+  }
+  if (stage === 'attempted' || stage === 'nurture') {
+    return 1
+  }
+  return 0
+}
+
+function lastContactEngagementSignal(lead: Lead): number {
+  const days = daysSince(lead.last_contact_at)
+  if (days === null) return 0
+  if (days <= 7) return 2
+  if (days <= 30) return 1
+  return 0
 }
 
 function engagementSignal(lead: Lead): number {
+  let total = 0
+  if (hasPurposeNotes(lead)) total += 2
+  total += pipelineStageEngagementSignal(lead)
+  total += lastContactEngagementSignal(lead)
+  return total
+}
+
+function homeToSellSignal(lead: Lead): number {
+  return lead.has_home_to_sell ? 3 : 0
+}
+
+function staleNewLeadPenalty(lead: Lead): number {
   const stage = (lead.pipeline_stage ?? 'new').toLowerCase()
-  if (stage === 'showing' || stage === 'offer' || stage === 'appointment') {
-    return 2
-  }
-  if (stage === 'contacted' || stage === 'nurture') return 1
+  if (stage !== 'new') return 0
+  if (lead.last_contact_at) return 0
+
+  const ageDays = leadAgeDays(lead)
+  if (ageDays === null) return 0
+  if (ageDays >= 730) return -4
+  if (ageDays >= 365) return -2
   return 0
 }
 
 function computeTotalScore(lead: Lead): number {
   const stage = (lead.pipeline_stage ?? 'new').toLowerCase()
-
   if (stage === 'dead' || stage === 'closed') {
     return 0
   }
 
-  const total =
-    priceSignal(lead) +
+  return (
+    sourceQualitySignal(lead) +
     recencySignal(lead) +
-    contactabilitySignal(lead) +
-    engagementSignal(lead)
-
-  return Math.max(0, Math.min(10, total))
+    contactInfoSignal(lead) +
+    engagementSignal(lead) +
+    homeToSellSignal(lead) +
+    staleNewLeadPenalty(lead)
+  )
 }
 
 function scoreToStatus(score: number): LeadStatus {
-  if (score >= 8) return 'hot'
-  if (score >= 5) return 'warm'
-  return 'cold'
+  if (score >= 10) return 'hot'
+  if (score >= 6) return 'warm'
+  if (score >= 3) return 'cold'
+  return 'dead'
 }
 
 /**
- * Pure J-2c scoring for one lead (no database writes).
- * Same weights and bands as desktop `leadScoring.ts`.
+ * Score one lead from source quality, recency, contact info, engagement,
+ * home-to-sell, and stale-new penalties. Status mapping in scoreToStatus().
  */
 export function scoreLead(lead: Lead): ScoringResult {
   const score = computeTotalScore(lead)

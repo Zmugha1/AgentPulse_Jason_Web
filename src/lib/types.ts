@@ -2,7 +2,7 @@
 
 import type { StzAnswerSource, StzQuestionId } from './stz-questions'
 
-export type LeadStatus = 'hot' | 'warm' | 'cold'
+export type LeadStatus = 'hot' | 'warm' | 'cold' | 'dead'
 
 export type PipelineStage =
   | 'new'
