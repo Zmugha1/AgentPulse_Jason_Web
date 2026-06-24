@@ -7,9 +7,10 @@ import { setSupabaseClient } from '../src/lib/getSupabaseClient'
 import { getScriptSupabase } from '../src/lib/scriptSupabase'
 import { scoreLead } from '../src/services/scoringService'
 import type { Lead, LeadStatus } from '../src/lib/types'
+import { getEffectiveStatus } from '../src/lib/types'
 
 const LEAD_SELECT =
-  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at'
+  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at, status_override'
 
 const BATCH_SIZE = 100
 
@@ -17,6 +18,10 @@ type StatusCounts = Record<LeadStatus, number>
 
 function emptyStatusCounts(): StatusCounts {
   return { hot: 0, warm: 0, cold: 0, dead: 0 }
+}
+
+function hasStatusOverride(lead: Lead): boolean {
+  return Boolean(lead.status_override?.trim())
 }
 
 async function fetchNonArchivedLeads(
@@ -61,21 +66,31 @@ async function main(): Promise<void> {
     await Promise.all(
       batch.map(async (lead) => {
         const { score, status } = scoreLead(lead)
-        statusCounts[status]++
+        const keepOverride = hasStatusOverride(lead)
+        const effectiveStatus = keepOverride ? getEffectiveStatus(lead) : status
+        statusCounts[effectiveStatus]++
 
         const prevScore = lead.score ?? 0
-        const prevStatus = (lead.status ?? 'cold') as LeadStatus
-        if (prevScore !== score || prevStatus !== status) {
+        const prevEffective = getEffectiveStatus(lead)
+        if (prevScore !== score || prevEffective !== effectiveStatus) {
           temperatureChanged++
+        }
+
+        const updatePayload: {
+          score: number
+          updated_at: string
+          status?: LeadStatus
+        } = {
+          score,
+          updated_at: new Date().toISOString(),
+        }
+        if (!keepOverride) {
+          updatePayload.status = status
         }
 
         const { error } = await client
           .from('leads')
-          .update({
-            score,
-            status,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updatePayload)
           .eq('id', lead.id)
 
         if (error) {

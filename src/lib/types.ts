@@ -45,6 +45,7 @@ export interface Lead {
   pipeline_stage: string | null
   score: number | null
   status: string | null
+  status_override?: string | null
   has_home_to_sell: boolean | null
   buying_or_renting: string | null
   lender_status: string | null
@@ -54,6 +55,14 @@ export interface Lead {
   is_archived: boolean
   created_at: string | null
   updated_at: string | null
+}
+
+export function getEffectiveStatus(lead: Lead): LeadStatus {
+  const raw = lead.status_override ?? lead.status ?? 'cold'
+  if (raw === 'hot' || raw === 'warm' || raw === 'cold' || raw === 'dead') {
+    return raw
+  }
+  return 'cold'
 }
 
 export interface StzProfile {

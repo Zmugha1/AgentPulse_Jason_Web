@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { Lead, LeadStatus } from '../lib/types'
+import { supabase } from '../lib/supabase'
 import { leadAgeDays } from '../services/scoringService'
 import { getStageLabel } from '../lib/pipelineStages'
 import LeadActionButtons from './LeadActionButtons'
 import LeadPurposeEditor from './LeadPurposeEditor'
 import LeadStageEditor from './LeadStageEditor'
 import SourceBadge from './SourceBadge'
+import StatusPill from './StatusPill'
 import { isStale } from '../lib/leadStale'
 
 /** Score DESC, then original_lead_date ASC (oldest first). Matches Morning Brief. */
@@ -56,13 +58,6 @@ function hasUsableEmail(email: string | null): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
 }
 
-function statusStyles(status: string | null): string {
-  const value = (status ?? 'cold') as LeadStatus
-  if (value === 'hot') return 'bg-coral/15 text-coral'
-  if (value === 'warm') return 'bg-gold/20 text-gold'
-  return 'bg-slate/10 text-slate'
-}
-
 function stageStyles(stage: string | null): string {
   const value = (stage ?? 'new').toLowerCase()
   if (value === 'dead' || value === 'closed') {
@@ -72,17 +67,6 @@ function stageStyles(stage: string | null): string {
     return 'bg-slate/10 text-navy'
   }
   return 'bg-teal/15 text-navy'
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  const label = (status ?? 'cold').toLowerCase()
-  return (
-    <span
-      className={`font-label rounded px-2 py-0.5 text-[10px] font-bold uppercase ${statusStyles(status)}`}
-    >
-      {label}
-    </span>
-  )
 }
 
 function StageBadge({ stage }: { stage: string | null }) {
@@ -144,6 +128,75 @@ export default function LeadTable({
   onUnarchive,
 }: LeadTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [overrideError, setOverrideError] = useState<string | null>(null)
+
+  async function handleStatusOverride(
+    leadId: string,
+    status: LeadStatus | null,
+  ) {
+    if (!onLeadUpdated || busyId) return
+
+    const lead = leads.find((l) => l.id === leadId)
+    if (!lead) return
+
+    const previous = lead
+    const optimistic: Lead = {
+      ...lead,
+      status_override: status,
+      updated_at: new Date().toISOString(),
+    }
+
+    setOverrideError(null)
+    setBusyId(leadId)
+    onLeadUpdated(optimistic)
+
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    const userEmail = sessionData.session?.user?.email
+    if (sessionError || !token || !userEmail) {
+      onLeadUpdated(previous)
+      setOverrideError('Please sign in again')
+      setBusyId(null)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/update-lead-status-override', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lead_id: leadId,
+          status_override: status,
+          user_email: userEmail,
+        }),
+      })
+
+      const payload = (await res.json()) as {
+        status_override?: LeadStatus | null
+        message?: string
+      }
+
+      if (!res.ok) {
+        onLeadUpdated(previous)
+        setOverrideError(payload.message ?? 'Could not update status')
+        return
+      }
+
+      onLeadUpdated({
+        ...optimistic,
+        status_override: payload.status_override ?? status,
+      })
+    } catch {
+      onLeadUpdated(previous)
+      setOverrideError('Could not update status')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   async function handleArchive(leadId: string) {
     if (!onArchive || busyId) return
@@ -167,6 +220,11 @@ export default function LeadTable({
 
   return (
     <div className="rounded-lg border border-mint overflow-hidden bg-white">
+      {overrideError ? (
+        <p className="font-body text-coral text-xs px-3 py-2" role="alert">
+          {overrideError}
+        </p>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1024px] border-collapse font-body text-sm">
           <thead>
@@ -236,7 +294,16 @@ export default function LeadTable({
                     {lead.score ?? 0}
                   </td>
                   <td className="px-3 py-2">
-                    <StatusBadge status={lead.status} />
+                    {onLeadUpdated ? (
+                      <StatusPill
+                        lead={lead}
+                        onOverride={(id, status) =>
+                          void handleStatusOverride(id, status)
+                        }
+                      />
+                    ) : (
+                      <StatusPill lead={lead} readonly />
+                    )}
                   </td>
                   <td className="px-3 py-2 text-slate text-xs">
                     {formatDate(lead.original_lead_date)}
