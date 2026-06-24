@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AddLeadModal from '../components/AddLeadModal'
 import LeadFilters, { type LeadFiltersState } from '../components/LeadFilters'
-import LeadTable, { sortLeadsByScoreThenDate } from '../components/LeadTable'
+import LeadTable from '../components/LeadTable'
 import type { Lead } from '../lib/types'
 import { matchesSourceFilter } from '../lib/leadSources'
+import { isStale } from '../lib/leadStale'
+import { leadAgeDays } from '../services/scoringService'
 import {
   archiveLead,
   getAllLeads,
@@ -16,6 +18,51 @@ const defaultFilters: LeadFiltersState = {
   status: 'all',
   pipelineStage: 'all',
   source: 'all',
+}
+
+export type LeadSortBy =
+  | 'score_desc'
+  | 'date_desc'
+  | 'date_asc'
+  | 'last_contact_desc'
+  | 'days_in_pipeline_desc'
+
+function leadDateMs(lead: Lead): number {
+  if (!lead.original_lead_date) return 0
+  const t = new Date(lead.original_lead_date).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
+function lastContactMs(lead: Lead): number {
+  if (!lead.last_contact_at) return 0
+  const t = new Date(lead.last_contact_at).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
+export function sortLeads(leads: Lead[], sortBy: LeadSortBy): Lead[] {
+  return [...leads].sort((a, b) => {
+    switch (sortBy) {
+      case 'score_desc': {
+        const scoreA = a.score ?? -1
+        const scoreB = b.score ?? -1
+        if (scoreB !== scoreA) return scoreB - scoreA
+        return leadDateMs(b) - leadDateMs(a)
+      }
+      case 'date_desc':
+        return leadDateMs(b) - leadDateMs(a)
+      case 'date_asc':
+        return leadDateMs(a) - leadDateMs(b)
+      case 'last_contact_desc':
+        return lastContactMs(b) - lastContactMs(a)
+      case 'days_in_pipeline_desc': {
+        const ageA = leadAgeDays(a) ?? -1
+        const ageB = leadAgeDays(b) ?? -1
+        return ageB - ageA
+      }
+      default:
+        return 0
+    }
+  })
 }
 
 function displayName(lead: Lead): string {
@@ -63,6 +110,8 @@ export default function LeadIntelligence() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<LeadFiltersState>(defaultFilters)
+  const [sortBy, setSortBy] = useState<LeadSortBy>('score_desc')
+  const [hideStale, setHideStale] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
 
@@ -83,7 +132,7 @@ export default function LeadIntelligence() {
         getAllLeads(showArchived),
         refreshCounts(),
       ])
-      setLeads(sortLeadsByScoreThenDate(rows))
+      setLeads(rows)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load leads')
     } finally {
@@ -104,7 +153,7 @@ export default function LeadIntelligence() {
           getLeadsCount(false),
         ])
         if (!cancelled) {
-          setLeads(sortLeadsByScoreThenDate(rows))
+          setLeads(rows)
           setTotalInDb(all)
           setArchivedCount(all - active)
         }
@@ -126,9 +175,12 @@ export default function LeadIntelligence() {
   }, [showArchived])
 
   const filtered = useMemo(() => {
-    const matches = leads.filter((lead) => matchesFilters(lead, filters))
-    return sortLeadsByScoreThenDate(matches)
-  }, [leads, filters])
+    let matches = leads.filter((lead) => matchesFilters(lead, filters))
+    if (hideStale) {
+      matches = matches.filter((lead) => !isStale(lead))
+    }
+    return sortLeads(matches, sortBy)
+  }, [leads, filters, sortBy, hideStale])
 
   const activePoolTotal = totalInDb - archivedCount
 
@@ -157,9 +209,7 @@ export default function LeadIntelligence() {
     await refreshCounts()
     if (showArchived) {
       setLeads((prev) =>
-        sortLeadsByScoreThenDate(
-          prev.map((l) => (l.id === leadId ? updated : l)),
-        ),
+        prev.map((l) => (l.id === leadId ? updated : l)),
       )
     } else {
       setLeads((prev) => prev.filter((l) => l.id !== leadId))
@@ -172,14 +222,10 @@ export default function LeadIntelligence() {
     await refreshCounts()
     if (showArchived) {
       setLeads((prev) =>
-        sortLeadsByScoreThenDate(
-          prev.map((l) => (l.id === leadId ? updated : l)),
-        ),
+        prev.map((l) => (l.id === leadId ? updated : l)),
       )
     } else {
-      setLeads((prev) =>
-        sortLeadsByScoreThenDate([...prev, updated]),
-      )
+      setLeads((prev) => [...prev, updated])
     }
     showToast('Lead restored to your active list.')
   }
@@ -213,7 +259,7 @@ export default function LeadIntelligence() {
 
   async function handleLeadAdded(lead: Lead) {
     await refreshCounts()
-    setLeads((prev) => sortLeadsByScoreThenDate([...prev, lead]))
+    setLeads((prev) => [...prev, lead])
     showToast('Lead added')
   }
 
@@ -235,7 +281,14 @@ export default function LeadIntelligence() {
         onSuccess={handleLeadAdded}
       />
 
-      <LeadFilters filters={filters} onChange={setFilters} />
+      <LeadFilters
+        filters={filters}
+        onChange={setFilters}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        hideStale={hideStale}
+        onHideStaleChange={setHideStale}
+      />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex items-center gap-2 font-body text-sm text-navy cursor-pointer">
@@ -272,9 +325,7 @@ export default function LeadIntelligence() {
           showArchived={showArchived}
           onLeadUpdated={(updated) => {
             setLeads((prev) =>
-              sortLeadsByScoreThenDate(
-                prev.map((l) => (l.id === updated.id ? updated : l)),
-              ),
+              prev.map((l) => (l.id === updated.id ? updated : l)),
             )
           }}
           onArchive={handleArchive}

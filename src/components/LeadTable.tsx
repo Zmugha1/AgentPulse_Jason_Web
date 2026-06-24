@@ -6,6 +6,7 @@ import LeadActionButtons from './LeadActionButtons'
 import LeadPurposeEditor from './LeadPurposeEditor'
 import LeadStageEditor from './LeadStageEditor'
 import SourceBadge from './SourceBadge'
+import { isStale } from '../lib/leadStale'
 
 /** Score DESC, then original_lead_date ASC (oldest first). Matches Morning Brief. */
 export function sortLeadsByScoreThenDate(leads: Lead[]): Lead[] {
@@ -104,6 +105,14 @@ function ArchivedBadge() {
   )
 }
 
+function StaleBadge() {
+  return (
+    <span className="font-label rounded px-2 py-0.5 text-[10px] uppercase bg-slate/15 text-slate border border-slate/30">
+      Stale
+    </span>
+  )
+}
+
 function ContactCell({ lead }: { lead: Lead }) {
   const phoneOk = hasUsablePhone(lead.phone)
   const emailOk = hasUsableEmail(lead.email)
@@ -135,7 +144,6 @@ export default function LeadTable({
   onUnarchive,
 }: LeadTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
-  const sorted = sortLeadsByScoreThenDate(leads)
 
   async function handleArchive(leadId: string) {
     if (!onArchive || busyId) return
@@ -185,14 +193,15 @@ export default function LeadTable({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((lead) => {
+            {leads.map((lead) => {
               const isArchived = lead.is_archived
               const rowBusy = busyId === lead.id
+              const stale = isStale(lead)
               return (
                 <tr
                   key={lead.id}
                   className={`border-t border-mint/60 hover:bg-cream/50 transition-opacity duration-300 ${
-                    rowBusy ? 'opacity-50' : ''
+                    rowBusy ? 'opacity-50' : stale ? 'opacity-60' : ''
                   }`}
                 >
                   <td className="px-3 py-2 font-semibold text-navy align-top">
@@ -211,7 +220,10 @@ export default function LeadTable({
                     <ContactCell lead={lead} />
                   </td>
                   <td className="px-3 py-2">
-                    <SourceBadge source={lead.source} size="sm" />
+                    <div className="flex flex-wrap items-center gap-1">
+                      <SourceBadge source={lead.source} size="sm" />
+                      {stale ? <StaleBadge /> : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2 align-top">
                     {onLeadUpdated ? (
