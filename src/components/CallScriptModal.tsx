@@ -13,6 +13,7 @@ export type CallScriptDraft = {
 type CallScriptModalProps = {
   lead: Lead
   onClose: () => void
+  onOutcome?: (outcome: 'called' | 'voicemail' | 'no_answer') => void
 }
 
 const SCRIPT_CARDS: { key: keyof CallScriptDraft; label: string }[] = [
@@ -49,7 +50,11 @@ function scriptToPlainText(script: CallScriptDraft): string {
   )
 }
 
-export default function CallScriptModal({ lead, onClose }: CallScriptModalProps) {
+export default function CallScriptModal({
+  lead,
+  onClose,
+  onOutcome,
+}: CallScriptModalProps) {
   const [script, setScript] = useState<CallScriptDraft | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -137,6 +142,14 @@ export default function CallScriptModal({ lead, onClose }: CallScriptModalProps)
     }
   }
 
+  function handleOutcome(outcome: 'called' | 'voicemail' | 'no_answer') {
+    onOutcome?.(outcome)
+    onClose()
+  }
+
+  const showOutcomes =
+    Boolean(onOutcome) && Boolean(script) && !loading && !error
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-navy/40 p-0 sm:p-4"
@@ -178,7 +191,33 @@ export default function CallScriptModal({ lead, onClose }: CallScriptModalProps)
           ) : null}
         </div>
 
-        <div className="border-t border-mint px-4 py-3 flex flex-wrap gap-2 justify-end shrink-0">
+        <div className="border-t border-mint px-4 py-3 shrink-0 space-y-3">
+          {showOutcomes ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleOutcome('called')}
+                className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy"
+              >
+                Reached Them
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOutcome('voicemail')}
+                className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
+              >
+                Left Voicemail
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOutcome('no_answer')}
+                className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
+              >
+                No Answer
+              </button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2 justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -210,6 +249,7 @@ export default function CallScriptModal({ lead, onClose }: CallScriptModalProps)
               No phone on file
             </span>
           )}
+          </div>
         </div>
       </div>
     </div>

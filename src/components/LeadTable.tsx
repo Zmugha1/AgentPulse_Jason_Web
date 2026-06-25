@@ -122,10 +122,10 @@ type LeadTableProps = {
 
 export default function LeadTable({
   leads,
-  showArchived,
+  showArchived: _showArchived,
   onLeadUpdated,
   onArchive,
-  onUnarchive,
+  onUnarchive: _onUnarchive,
 }: LeadTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [overrideError, setOverrideError] = useState<string | null>(null)
@@ -208,16 +208,6 @@ export default function LeadTable({
     }
   }
 
-  async function handleUnarchive(leadId: string) {
-    if (!onUnarchive || busyId) return
-    setBusyId(leadId)
-    try {
-      await onUnarchive(leadId)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   return (
     <div className="rounded-lg border border-mint overflow-hidden bg-white">
       {overrideError ? (
@@ -242,9 +232,6 @@ export default function LeadTable({
               <th className="px-3 py-2 font-normal text-right font-label">
                 Days in
               </th>
-              {(onArchive || onUnarchive) && (
-                <th className="px-3 py-2 font-normal text-right">Archive</th>
-              )}
               {onLeadUpdated && (
                 <th className="px-3 py-2 font-normal text-right">Quick actions</th>
               )}
@@ -314,37 +301,13 @@ export default function LeadTable({
                   <td className="px-3 py-2 text-right font-label text-slate text-xs">
                     {formatDaysSinceArrival(lead)}
                   </td>
-                  {(onArchive || onUnarchive) && (
-                    <td className="px-3 py-2 text-right align-top">
-                      {isArchived && showArchived && onUnarchive ? (
-                        <button
-                          type="button"
-                          disabled={rowBusy}
-                          onClick={() => handleUnarchive(lead.id)}
-                          className="font-label text-xs text-teal hover:text-navy disabled:opacity-50 min-h-[44px] min-w-[44px] px-2"
-                        >
-                          Unarchive
-                        </button>
-                      ) : null}
-                      {!isArchived && onArchive ? (
-                        <button
-                          type="button"
-                          disabled={rowBusy}
-                          onClick={() => handleArchive(lead.id)}
-                          className="font-label text-xs text-slate hover:text-navy disabled:opacity-50 min-h-[44px] min-w-[44px] px-2"
-                          title="Archive this lead"
-                        >
-                          Archive
-                        </button>
-                      ) : null}
-                    </td>
-                  )}
                   {onLeadUpdated && (
                     <td className="px-3 py-2 text-right align-top">
                       {!isArchived ? (
                         <LeadActionButtons
                           lead={lead}
                           onLeadUpdated={onLeadUpdated}
+                          onArchive={onArchive ? handleArchive : undefined}
                           disabled={rowBusy}
                         />
                       ) : null}

@@ -7,6 +7,7 @@ const SMS_CHAR_LIMIT = 160
 type SmsModalProps = {
   lead: Lead
   onClose: () => void
+  onOutcome?: (outcome: 'texted' | 'not_sent') => void
 }
 
 function displayName(lead: Lead): string {
@@ -31,7 +32,7 @@ function hasUsablePhone(phone: string | null): boolean {
   return Boolean(phone && phone.replace(/\D/g, '').length >= 10)
 }
 
-export default function SmsModal({ lead, onClose }: SmsModalProps) {
+export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -99,6 +100,14 @@ export default function SmsModal({ lead, onClose }: SmsModalProps) {
   const charCount = draft.length
   const phoneOk = hasUsablePhone(lead.phone)
 
+  function handleOutcome(outcome: 'texted' | 'not_sent') {
+    onOutcome?.(outcome)
+    onClose()
+  }
+
+  const showOutcomes =
+    Boolean(onOutcome) && Boolean(draft.trim()) && !loading && !error
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-navy/40 p-0 sm:p-4"
@@ -154,7 +163,26 @@ export default function SmsModal({ lead, onClose }: SmsModalProps) {
           )}
         </div>
 
-        <div className="border-t border-mint px-4 py-3 flex flex-wrap gap-2 justify-end shrink-0">
+        <div className="border-t border-mint px-4 py-3 shrink-0 space-y-3">
+          {showOutcomes ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleOutcome('texted')}
+                className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy"
+              >
+                I Sent It
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOutcome('not_sent')}
+                className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
+              >
+                I Did Not Send
+              </button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2 justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -170,6 +198,7 @@ export default function SmsModal({ lead, onClose }: SmsModalProps) {
               Open in Messages
             </a>
           ) : null}
+          </div>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 type EmailModalProps = {
   lead: Lead
   onClose: () => void
+  onOutcome?: (outcome: 'emailed' | 'not_sent') => void
 }
 
 function displayName(lead: Lead): string {
@@ -16,7 +17,7 @@ function hasUsableEmail(email: string | null): boolean {
   return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
 }
 
-export default function EmailModal({ lead, onClose }: EmailModalProps) {
+export default function EmailModal({ lead, onClose, onOutcome }: EmailModalProps) {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
@@ -102,6 +103,14 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
     }
   }
 
+  function handleOutcome(outcome: 'emailed' | 'not_sent') {
+    onOutcome?.(outcome)
+    onClose()
+  }
+
+  const showOutcomes =
+    Boolean(onOutcome) && Boolean(body.trim()) && !loading && !error
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-navy/40 p-0 sm:p-4"
@@ -162,7 +171,26 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
           )}
         </div>
 
-        <div className="border-t border-mint px-4 py-3 flex flex-wrap gap-2 justify-end shrink-0">
+        <div className="border-t border-mint px-4 py-3 shrink-0 space-y-3">
+          {showOutcomes ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleOutcome('emailed')}
+                className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy"
+              >
+                I Sent It
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOutcome('not_sent')}
+                className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
+              >
+                I Did Not Send
+              </button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2 justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -193,6 +221,7 @@ export default function EmailModal({ lead, onClose }: EmailModalProps) {
               </span>
             )
           ) : null}
+          </div>
         </div>
       </div>
     </div>
