@@ -48,6 +48,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/fetch-weekly-activity"
+  to = "/.netlify/functions/fetch-weekly-activity"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-sms"
   to = "/.netlify/functions/draft-sms"
   status = 200

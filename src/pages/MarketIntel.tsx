@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { SourceBreakdown } from '../lib/types'
+import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
 import {
   fetchWebsiteMetrics,
   getPoolHeadlineMetrics,
@@ -26,6 +27,94 @@ import {
 } from '../services/marketIntelService'
 
 const CHART_COLORS = ['#2D4459', '#3BBFBF', '#F05F57', '#D4A017', '#C8E8E5']
+const CENTRAL_TZ = 'America/Chicago'
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const
+
+function getCentralWeekdayIndex(date: Date): number {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: CENTRAL_TZ,
+    weekday: 'short',
+  }).format(date)
+  const map: Record<string, number> = {
+    Mon: 0,
+    Tue: 1,
+    Wed: 2,
+    Thu: 3,
+    Fri: 4,
+    Sat: 5,
+    Sun: 6,
+  }
+  return map[weekday] ?? 0
+}
+
+function getCentralYmd(date: Date): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: CENTRAL_TZ,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(date)
+  const read = (type: Intl.DateTimeFormatPartTypes): number => {
+    const value = parts.find((part) => part.type === type)?.value ?? '0'
+    return Number(value)
+  }
+  return { year: read('year'), month: read('month'), day: read('day') }
+}
+
+function addCalendarDays(
+  year: number,
+  month: number,
+  day: number,
+  deltaDays: number,
+): { year: number; month: number; day: number } {
+  const utc = new Date(Date.UTC(year, month - 1, day + deltaDays))
+  return {
+    year: utc.getUTCFullYear(),
+    month: utc.getUTCMonth() + 1,
+    day: utc.getUTCDate(),
+  }
+}
+
+function formatCentralYmd(
+  ymd: { year: number; month: number; day: number },
+  includeYear: boolean,
+): string {
+  const monthName = MONTH_NAMES[ymd.month - 1] ?? 'Unknown'
+  if (includeYear) {
+    return `${monthName} ${ymd.day}, ${ymd.year}`
+  }
+  return `${monthName} ${ymd.day}`
+}
+
+function getThisWeekSubtitle(now = new Date()): string {
+  const weekdayIndex = getCentralWeekdayIndex(now)
+  const today = getCentralYmd(now)
+  const monday = addCalendarDays(
+    today.year,
+    today.month,
+    today.day,
+    -weekdayIndex,
+  )
+  const sunday = addCalendarDays(monday.year, monday.month, monday.day, 6)
+  const sameYear = monday.year === sunday.year
+  const mondayLabel = formatCentralYmd(monday, !sameYear)
+  const sundayLabel = formatCentralYmd(sunday, true)
+  return `Week of ${mondayLabel} -- ${sundayLabel}`
+}
 
 const STAGE_LABELS: Record<string, string> = {
   new: 'New',
@@ -615,6 +704,10 @@ export default function MarketIntel() {
 
   return (
     <div className="space-y-6">
+      <IntelCard title="This Week" subtitle={getThisWeekSubtitle()}>
+        <WeeklyActivitySummary />
+      </IntelCard>
+
       <section className="bg-white border border-mint rounded-lg p-6 md:p-8">
         <h2 className="font-heading text-2xl md:text-3xl text-navy">
           {formatCount(poolTotal)} leads in your active pool
