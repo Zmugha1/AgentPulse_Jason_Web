@@ -5,7 +5,7 @@ import { STZ_QUESTION_IDS } from '../lib/stz-questions'
 import type { StzProfile } from '../lib/types'
 
 const PROFILE_SELECT =
-  'id, user_email, q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5, answer_sources, created_at, updated_at'
+  'id, user_email, q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5, answer_sources, email_signature, created_at, updated_at'
 
 function buildSeedRowPayload(userEmail: string) {
   const answer_sources: Partial<Record<StzQuestionId, StzAnswerSource>> = {}
@@ -140,6 +140,7 @@ export async function updateAnswer(
 export async function saveProfileAnswers(
   userEmail: string,
   changes: Partial<Record<StzQuestionId, string>>,
+  emailSignature?: string,
 ): Promise<StzProfile> {
   const email = userEmail.trim().toLowerCase()
   const profile = await getProfileForUser(email)
@@ -165,6 +166,15 @@ export async function saveProfileAnswers(
     payload[questionId] = trimmed
     sources[questionId] = 'user_edited'
     hasUpdates = true
+  }
+
+  if (emailSignature !== undefined) {
+    const trimmedSignature = emailSignature.trim()
+    const storedSignature = (profile.email_signature ?? '').trim()
+    if (trimmedSignature !== storedSignature) {
+      payload.email_signature = trimmedSignature || null
+      hasUpdates = true
+    }
   }
 
   if (!hasUpdates) {

@@ -39,6 +39,7 @@ export default function MyAgentPulse() {
   const [openLayers, setOpenLayers] = useState<Set<StzLayerId>>(
     () => new Set(['L1']),
   )
+  const [signatureDraft, setSignatureDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -60,6 +61,7 @@ export default function MyAgentPulse() {
         if (!cancelled) {
           setProfile(row)
           setDrafts(buildDraftsFromProfile(row))
+          setSignatureDraft(row.email_signature ?? '')
         }
       } catch (err) {
         if (!cancelled) {
@@ -86,8 +88,11 @@ export default function MyAgentPulse() {
         : getAnswerValue(profile, id).trim()
       if (drafts[id].trim() !== stored) return true
     }
+    if (signatureDraft.trim() !== (profile.email_signature ?? '').trim()) {
+      return true
+    }
     return false
-  }, [profile, drafts])
+  }, [profile, drafts, signatureDraft])
 
   const handleDraftChange = useCallback(
     (questionId: StzQuestionId, value: string) => {
@@ -105,9 +110,10 @@ export default function MyAgentPulse() {
     setSaveState('idle')
     setSaveError(null)
     try {
-      const updated = await saveProfileAnswers(userEmail, drafts)
+      const updated = await saveProfileAnswers(userEmail, drafts, signatureDraft)
       setProfile(updated)
       setDrafts(buildDraftsFromProfile(updated))
+      setSignatureDraft(updated.email_signature ?? '')
       setSaveState('saved')
       window.setTimeout(() => setSaveState('idle'), 2000)
     } catch (err) {
@@ -238,6 +244,30 @@ export default function MyAgentPulse() {
           )
         })}
       </div>
+
+      <section className="bg-white border border-mint rounded-lg p-4 md:p-5 space-y-3">
+        <div>
+          <h3 className="font-heading text-lg text-navy">Email Signature</h3>
+          <p className="font-body text-sm text-slate mt-1">
+            Appended to every email draft AgentPulse generates for you
+          </p>
+        </div>
+        <textarea
+          value={signatureDraft}
+          onChange={(e) => {
+            setSignatureDraft(e.target.value)
+            setSaveState('idle')
+            setSaveError(null)
+          }}
+          rows={5}
+          placeholder={`Jason Patti
+The Sue Patti Group
+Realty Executives Integrity Lake Country
+262-623-7175
+thesuepattigroup.ai`}
+          className="w-full font-body text-sm text-navy border border-mint rounded px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-teal/40"
+        />
+      </section>
     </div>
   )
 }

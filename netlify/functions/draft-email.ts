@@ -11,7 +11,7 @@ const EMAIL_MODEL = 'claude-sonnet-4-6'
 const MAX_OUTPUT_TOKENS = 1000
 
 const STZ_PROFILE_SELECT =
-  'q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5'
+  'q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5, email_signature'
 
 const LEAD_SELECT =
   'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, budget_max, listing_price, purpose'
@@ -139,8 +139,28 @@ function formatLeadContext(lead: LeadRow): string {
   ].join('\n')
 }
 
-function buildEmailPrompt(voiceProfile: string, lead: LeadRow): string {
+function buildEmailPrompt(
+  voiceProfile: string,
+  lead: LeadRow,
+  emailSignature?: string | null,
+): string {
   const temp = leadTemperature(lead.score)
+  const rules = [
+    '- Subject line under 60 characters.',
+    '- Body under 200 words.',
+    '- Sounds like Jason wrote it personally, not a CRM template.',
+    '- No generic openers like "I hope this email finds you well."',
+    '- Reference something specific about this lead.',
+    '- Return JSON only, no markdown fences:',
+    '{"subject":"...","body":"..."}',
+    '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
+  ]
+  const trimmedSignature = emailSignature?.trim()
+  if (trimmedSignature) {
+    rules.push(
+      `- End the email with this exact signature on a new line, do not modify it:\n${trimmedSignature}`,
+    )
+  }
   return [
     'Write a professional real estate email for this lead.',
     '',
@@ -154,14 +174,7 @@ function buildEmailPrompt(voiceProfile: string, lead: LeadRow): string {
     temperatureGuidance(temp, lead.source),
     '',
     'Rules:',
-    '- Subject line under 60 characters.',
-    '- Body under 200 words.',
-    '- Sounds like Jason wrote it personally, not a CRM template.',
-    '- No generic openers like "I hope this email finds you well."',
-    '- Reference something specific about this lead.',
-    '- Return JSON only, no markdown fences:',
-    '{"subject":"...","body":"..."}',
-    '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
+    ...rules,
   ].join('\n')
 }
 
@@ -273,10 +286,13 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
-    const voiceProfile = formatStzProfile(
-      profile as Record<string, unknown> | null,
-    )
-    const prompt = buildEmailPrompt(voiceProfile, lead as LeadRow)
+    const profileRow = profile as Record<string, unknown> | null
+    const emailSignature =
+      typeof profileRow?.email_signature === 'string'
+        ? profileRow.email_signature
+        : null
+    const voiceProfile = formatStzProfile(profileRow)
+    const prompt = buildEmailPrompt(voiceProfile, lead as LeadRow, emailSignature)
 
     safeLog('draft_started', { lead_id: leadId })
 
@@ -286,6 +302,10 @@ export const handler: Handler = async (event) => {
       const draft = await callAnthropicForEmail(prompt)
       subject = draft.subject
       emailBody = draft.body
+      const trimmedSignature = emailSignature?.trim()
+      if (trimmedSignature) {
+        emailBody = `${emailBody}\n\n${trimmedSignature}`
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Anthropic request failed'
       safeLog('anthropic_call_failed', {

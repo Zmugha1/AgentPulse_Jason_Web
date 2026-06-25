@@ -94,6 +94,7 @@ export interface StzProfile {
   q5_4: string | null
   q5_5: string | null
   answer_sources: Partial<Record<StzQuestionId, StzAnswerSource>>
+  email_signature: string | null
   created_at: string | null
   updated_at: string | null
 }
