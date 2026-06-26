@@ -635,3 +635,49 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 
 **Never do:** Build workflow actions in one view without adding them to all views where the same lead appears.
 
+---
+
+## ADR — Email signature stored in stz_profile
+
+**Date:** 2026-06-25
+
+**Decision:** Jason's email signature is stored as `email_signature` column on `stz_profile` table, not a separate table or env var.
+
+**Layer:** Tech
+
+**Context:** Signature needs to travel with the voice profile so `draft-email.ts` can access both in one query.
+
+**Consequence:** Any future profile fields that affect AI generation belong on `stz_profile`.
+
+**Never do:** Store AI generation context in separate tables that require extra joins.
+
+---
+
+## ADR — Weekly activity uses updated_at not stage change events
+
+**Date:** 2026-06-25
+
+**Decision:** `stages_advanced` counts leads where `updated_at` changed this week and stage is not `new`/`inactive`/`dead`.
+
+**Layer:** L5 Evaluation
+
+**Context:** No stage history table exists. Using `updated_at` is the only available signal.
+
+**Consequence:** Rescore runs inflate `stages_advanced` because they update `updated_at` on many rows. Metric needs refinement once a stage history table exists.
+
+**Never do:** Use `updated_at` as a proxy for user actions without documenting the limitation.
+
+---
+
+## ADR — Weekly activity function uses POST not GET
+
+**Date:** 2026-06-25
+
+**Decision:** `fetch-weekly-activity.ts` uses POST to match existing Netlify function patterns in this codebase.
+
+**Layer:** Tech
+
+**Context:** All existing Netlify functions use POST. Auth via Authorization header requires POST. Consistency with `fetch-website-metrics`.
+
+**Never do:** Mix GET and POST patterns for authenticated Netlify functions in this repo.
+

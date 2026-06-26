@@ -422,3 +422,35 @@ c) Walk the user through a generation step that captures the value directly into
 **Prevention rule:** Every catch block that calls `safeLog` must include the raw error message. `err instanceof Error ? err.message : String(err)` is the pattern.
 
 **Commit:** 0ad33f8
+
+---
+
+## INC — Stages Advanced metric inflated by rescore
+
+**Date:** 2026-06-25
+
+**What broke:** Market Intel showed 808 stages advanced this week. Actual manual stage changes were far fewer.
+
+**Root cause:** Rescore script updated `updated_at` on 739 leads. `stages_advanced` query counts any lead where `updated_at` changed this week and stage is not `new`/`inactive`/`dead`.
+
+**Fix applied:** None yet. Known limitation documented.
+
+**Prevention rule:** Before using `updated_at` as a proxy for user action, verify no batch operations ran that week. Add stage history table to track actual stage changes.
+
+**Commit:** N/A
+
+---
+
+## INC — Deals Closed showing 7 from CSV import
+
+**Date:** 2026-06-25
+
+**What broke:** Market Intel showed 7 deals closed this week. These are historical CSV import leads not new closings.
+
+**Root cause:** Same as `stages_advanced` — rescore updated `updated_at` on all leads including the 7 that had `pipeline_stage = closed` from the original import.
+
+**Fix applied:** None yet. Flag to Jason.
+
+**Prevention rule:** Closed deals metric should filter by when `pipeline_stage` was SET to closed, not when `updated_at` changed.
+
+**Commit:** N/A

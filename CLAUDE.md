@@ -82,3 +82,10 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - `analytics.js` on thesuepattigroup.ai is the single source of truth for all attribution capture. Never add `gtag()` calls directly to HTML pages.
 - Action buttons (Called, Voicemail, No Answer, Emailed, Not Interested) must exist and behave identically in every view where a lead appears. Never build workflow actions in one view only.
 - Morning Brief actions and Lead Intelligence actions are the same five buttons with the same stage mapping. One system. No inconsistency.
+
+## Rules added 2026-06-25
+
+- Email signature and all AI generation context fields belong on `stz_profile`, not separate tables.
+- Weekly activity metrics that use `updated_at` are vulnerable to inflation from batch operations like rescore. Document the limitation and plan a stage history table.
+- Stages advanced and deals closed metrics need a stage change event log to be accurate. `updated_at` is not a reliable proxy.
+- After any rescore run, Market Intel weekly metrics will show inflated numbers for that week. Warn Jason when a rescore is run.

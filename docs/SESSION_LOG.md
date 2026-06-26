@@ -593,3 +593,45 @@ Blockers and open items:
 
 **Next session should start with:** Build 0 — add the five action buttons (Called, Voicemail, No Answer, Emailed, Not Interested) to Lead Intelligence lead rows with the same stage mapping as Morning Brief. Then move to Build 1 SMS draft and Build 2 email compose.
 
+---
+
+## Session 2026-06-25
+
+**Commits this session:**
+
+- `239b921` — feat: unified lead workflow, five actions with outcome logging inside modals, morning brief and lead intelligence aligned
+- `ff7e811` — feat: email signature field on my agentpulse, appended to all email drafts
+- `9161346` — feat: market intel weekly activity summary, this week vs last week metrics
+
+**ADRs added:** 3
+
+- Email signature stored in stz_profile
+- Weekly activity uses updated_at not stage change events
+- Weekly activity function uses POST not GET
+
+**Incidents:** 2
+
+- Stages Advanced inflated by rescore (808)
+- Deals Closed showing historical CSV data (7)
+
+**Runbooks added:** 1
+
+- Add a new field to stz_profile
+
+**Production state at session end:**
+
+- Unified five-button workflow live and verified: CALL TEXT EMAIL FIND MORE DONE
+- Email signature on My AgentPulse saving and appending to email drafts
+- Market Intel This Week section live with five metric cards
+- Weekly activity showing real data with known inflation from rescore run
+
+**Open items:**
+
+- `stages_advanced` metric needs stage history table for accuracy
+- `deals_closed` metric has same issue
+- Duplicate signature possible if model follows prompt AND belt-suspenders append both fire — deduplication needed
+- Realtor.com response rate 0.0% because Jason emailed Christine Rapp outside AgentPulse — will improve with usage
+- Cursor looping on Step 1 three times — open a fresh Cursor chat when this happens
+
+**Next session should start with:** Market Intel lead source performance table (Build 3 in the market intel sequence). Then SMS cross-platform fix.
+

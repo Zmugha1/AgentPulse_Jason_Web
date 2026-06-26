@@ -583,3 +583,27 @@
 
 **Watch out for:** Netlify auto-deploy does not fire on local commit, only on push to remote. A Published status from a prior deploy can look current even when it is not.
 
+---
+
+## RUN — Add a new field to stz_profile
+
+**Task:** Add a new column to `stz_profile` that affects AI generation.
+
+**Trigger:** New voice or profile field needed in any AI draft function.
+
+**Steps:**
+
+1. Create migration:
+   `ALTER TABLE public.stz_profile ADD COLUMN IF NOT EXISTS [field] text;`
+2. `npx supabase db push`
+3. Add field to `PROFILE_SELECT` in `stzProfileService.ts`
+4. Add field to Lead interface in `types.ts` if needed
+5. Add UI field to `MyAgentPulse.tsx`
+6. Wire into `saveProfileAnswers()` payload
+7. Add to `STZ_PROFILE_SELECT` in any Netlify function that uses the profile for AI
+8. Deploy and verify field saves and appears in AI output
+
+**Expected output:** Field saves from My AgentPulse and appears in generated drafts.
+
+**Watch out for:** Netlify functions cache their imports — redeploy required after any change to `stzProfileService.ts` patterns.
+
