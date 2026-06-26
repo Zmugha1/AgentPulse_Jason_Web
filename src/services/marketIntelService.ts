@@ -199,6 +199,198 @@ export async function getSourceBreakdown(): Promise<SourceBreakdown> {
   return breakdown
 }
 
+export type SourcePerformanceRow = {
+  source_group: string
+  total: number
+  worked: number
+  advanced: number
+  closed: number
+  conversion_rate: number
+  border_color: string
+  insight: string
+}
+
+const SOURCE_GROUP_ORDER = [
+  'Realtor.com',
+  'Zillow',
+  'Website',
+  'Referral',
+  'Manual',
+  'Other',
+] as const
+
+const SOURCE_GROUP_BORDERS: Record<string, string> = {
+  'Realtor.com': '#F05F57',
+  Zillow: '#C8974A',
+  Website: '#3BBFBF',
+  Referral: '#2D4459',
+  Manual: '#7A8F95',
+  Other: '#7A8F95',
+}
+
+const REALTOR_SOURCE_KEYS = new Set([
+  'realtor.com',
+  'realtor_com_full',
+  'realtor_contacts',
+  'realtor_com_connections_plus',
+])
+
+const WEBSITE_SOURCE_KEYS = new Set([
+  'website_chatbot',
+  'website_valuation',
+  'website_newsletter',
+  'website_ai_referral',
+])
+
+const REFERRAL_SOURCE_KEYS = new Set([
+  'referral_bni',
+  'referral_past_client',
+])
+
+const NON_ADVANCED_STAGES = new Set(['new', 'inactive', 'dead'])
+
+function normalizeSourceKey(raw: string | null): string {
+  return (raw ?? '').trim().toLowerCase()
+}
+
+function sourceGroupFor(raw: string | null): string {
+  const key = normalizeSourceKey(raw)
+  if (REALTOR_SOURCE_KEYS.has(key)) return 'Realtor.com'
+  if (key === 'zillow') return 'Zillow'
+  if (WEBSITE_SOURCE_KEYS.has(key)) return 'Website'
+  if (REFERRAL_SOURCE_KEYS.has(key)) return 'Referral'
+  if (key === 'manual') return 'Manual'
+  return 'Other'
+}
+
+function isAdvancedPipelineStage(stage: string | null): boolean {
+  const value = (stage ?? 'new').toLowerCase()
+  return !NON_ADVANCED_STAGES.has(value)
+}
+
+function buildSourceInsight(
+  group: string,
+  total: number,
+  closed: number,
+): string {
+  if (group === 'Realtor.com') {
+    if (closed === 0) {
+      return 'Paid source. No closed deals yet. Focus on response speed.'
+    }
+    const noun = closed === 1 ? 'deal' : 'deals'
+    return `${closed} closed ${noun} from paid source. ROI positive.`
+  }
+  if (group === 'Zillow') {
+    if (closed > 0) {
+      const noun = closed === 1 ? 'deal' : 'deals'
+      return `${closed} closed ${noun} from Zillow pool.`
+    }
+    if (total > 500) {
+      return 'Large legacy pool. Focus on recency filter to find workable leads.'
+    }
+    return ''
+  }
+  if (group === 'Website') {
+    if (total > 0) {
+      return 'High intent source. These leads found you organically.'
+    }
+    return 'Website leads will appear here as they arrive.'
+  }
+  return ''
+}
+
+async function fetchWorkedLeadIds(): Promise<Set<string>> {
+  const client = getSupabaseClient()
+  const worked = new Set<string>()
+  let offset = 0
+  const pageSize = 1000
+
+  while (true) {
+    const { data, error } = await client
+      .from('interactions')
+      .select('lead_id')
+      .range(offset, offset + pageSize - 1)
+
+    if (error) {
+      console.error('[marketIntelService] fetchWorkedLeadIds:', error.message)
+      throw new Error(`fetchWorkedLeadIds: ${error.message}`)
+    }
+    if (!data?.length) break
+
+    for (const row of data) {
+      if (row.lead_id) worked.add(row.lead_id)
+    }
+    if (data.length < pageSize) break
+    offset += pageSize
+  }
+
+  return worked
+}
+
+/**
+ * Consolidated lead source performance with conversion metrics.
+ * Fetches leads and interactions separately, aggregates in TypeScript.
+ */
+export async function getSourcePerformance(): Promise<SourcePerformanceRow[]> {
+  const client = getSupabaseClient()
+
+  const { data, error } = await client
+    .from('leads')
+    .select('id, source, pipeline_stage')
+    .eq('is_archived', false)
+
+  if (error) {
+    console.error('[marketIntelService] getSourcePerformance:', error.message)
+    throw new Error(`getSourcePerformance: ${error.message}`)
+  }
+
+  const leads = (data ?? []) as Array<{
+    id: string
+    source: string | null
+    pipeline_stage: string | null
+  }>
+
+  const workedLeadIds = await fetchWorkedLeadIds()
+
+  const aggregates = new Map<
+    string,
+    { total: number; worked: number; advanced: number; closed: number }
+  >()
+  for (const group of SOURCE_GROUP_ORDER) {
+    aggregates.set(group, { total: 0, worked: 0, advanced: 0, closed: 0 })
+  }
+
+  for (const lead of leads) {
+    const group = sourceGroupFor(lead.source)
+    const bucket = aggregates.get(group)!
+    bucket.total++
+    if (workedLeadIds.has(lead.id)) bucket.worked++
+    if (isAdvancedPipelineStage(lead.pipeline_stage)) bucket.advanced++
+    if ((lead.pipeline_stage ?? '').toLowerCase() === 'closed') bucket.closed++
+  }
+
+  const rows: SourcePerformanceRow[] = []
+
+  for (const group of SOURCE_GROUP_ORDER) {
+    const bucket = aggregates.get(group)!
+    if (bucket.total === 0) continue
+
+    rows.push({
+      source_group: group,
+      total: bucket.total,
+      worked: bucket.worked,
+      advanced: bucket.advanced,
+      closed: bucket.closed,
+      conversion_rate: percent(bucket.closed, bucket.total),
+      border_color: SOURCE_GROUP_BORDERS[group] ?? '#7A8F95',
+      insight: buildSourceInsight(group, bucket.total, bucket.closed),
+    })
+  }
+
+  rows.sort((a, b) => b.total - a.total)
+  return rows
+}
+
 /**
  * Hero subtitle metrics: recent unworked, warm score band, closed count.
  */

@@ -3,30 +3,27 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import type { SourceBreakdown } from '../lib/types'
 import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
+import SourcePerformanceTable from '../components/SourcePerformanceTable'
 import {
   fetchWebsiteMetrics,
   getPoolHeadlineMetrics,
   getPricedLeadStats,
   getRecencyBuckets,
-  getSourceBreakdown,
+  getSourcePerformance,
   getStageDistribution,
   getTotalCounts,
   type MarketIntelResult,
   type MetricsRange,
+  type SourcePerformanceRow,
   type TrafficSourceCategoryRow,
 } from '../services/marketIntelService'
 
-const CHART_COLORS = ['#2D4459', '#3BBFBF', '#F05F57', '#D4A017', '#C8E8E5']
 const CENTRAL_TZ = 'America/Chicago'
 
 const MONTH_NAMES = [
@@ -135,18 +132,6 @@ function formatPercent(count: number, total: number): string {
 
 function formatCount(value: number): string {
   return value.toLocaleString()
-}
-
-function sourceChartData(sources: SourceBreakdown) {
-  return [
-    { name: 'Zillow', count: sources.zillow },
-    { name: 'Realtor full', count: sources.realtor_full },
-    { name: 'Realtor contacts', count: sources.realtor_contacts },
-    {
-      name: 'Realtor Connections Plus',
-      count: sources.realtor_connections_plus,
-    },
-  ].filter((row) => row.count > 0)
 }
 
 function IntelCard({
@@ -589,7 +574,9 @@ export default function MarketIntel() {
   const [headline, setHeadline] = useState<Awaited<
     ReturnType<typeof getPoolHeadlineMetrics>
   > | null>(null)
-  const [sources, setSources] = useState<SourceBreakdown | null>(null)
+  const [sourcePerformance, setSourcePerformance] = useState<
+    SourcePerformanceRow[] | null
+  >(null)
   const [stages, setStages] = useState<Awaited<
     ReturnType<typeof getStageDistribution>
   > | null>(null)
@@ -610,14 +597,14 @@ export default function MarketIntel() {
         const [
           totalCounts,
           poolHeadline,
-          sourceBreakdown,
+          sourcePerformanceRows,
           stageDistribution,
           recencyBuckets,
           priced,
         ] = await Promise.all([
           getTotalCounts(),
           getPoolHeadlineMetrics(),
-          getSourceBreakdown(),
+          getSourcePerformance(),
           getStageDistribution(),
           getRecencyBuckets(),
           getPricedLeadStats(),
@@ -625,7 +612,7 @@ export default function MarketIntel() {
         if (cancelled) return
         setTotals(totalCounts)
         setHeadline(poolHeadline)
-        setSources(sourceBreakdown)
+        setSourcePerformance(sourcePerformanceRows)
         setStages(stageDistribution)
         setRecency(recencyBuckets)
         setPricedStats(priced)
@@ -655,11 +642,6 @@ export default function MarketIntel() {
     [stages],
   )
 
-  const sourceData = useMemo(
-    () => (sources ? sourceChartData(sources) : []),
-    [sources],
-  )
-
   const pricedLeadPhrase = useMemo(() => {
     if (!pricedStats || pricedStats.total === 0) {
       return 'You currently have no priced leads.'
@@ -685,7 +667,7 @@ export default function MarketIntel() {
     error ||
     !totals ||
     !headline ||
-    !sources ||
+    !sourcePerformance ||
     !stages ||
     !recency ||
     !pricedStats
@@ -759,38 +741,9 @@ export default function MarketIntel() {
 
       <IntelCard
         title="Where your leads come from"
-        subtitle="Website source flows live once Phase 6 integration ships"
+        subtitle="Conversion performance by lead source"
       >
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={sourceData}
-                dataKey="count"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={(props) => {
-                  const name = props.name ?? ''
-                  const value =
-                    typeof props.value === 'number' ? props.value : 0
-                  return `${name}: ${value}`
-                }}
-              >
-                {sourceData.map((_, index) => (
-                  <Cell
-                    key={sourceData[index].name}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value) => [formatCount(Number(value)), 'Leads']}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <SourcePerformanceTable rows={sourcePerformance} />
       </IntelCard>
 
       <WebsiteActivitySection />
