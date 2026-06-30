@@ -454,3 +454,35 @@ c) Walk the user through a generation step that captures the value directly into
 **Prevention rule:** Closed deals metric should filter by when `pipeline_stage` was SET to closed, not when `updated_at` changed.
 
 **Commit:** N/A
+
+---
+
+## INC — Source breakdown unsellable, raw DB values shown to client
+
+**Date:** 2026-06-25
+
+**What broke:** Market Intel showed Realtor full: 27, Realtor contacts: 5, Realtor Connections Plus: 3 as separate pie slices. Not presentable to Jason's prospects.
+
+**Root cause:** `getSourceBreakdown()` queried raw source column values directly with no consolidation layer applied, despite `getSourceLabel()` already existing in `leadSources.ts` for this exact purpose.
+
+**Fix applied:** Built `getSourcePerformance()` with proper source grouping and conversion metrics. Commit `66f48ff`.
+
+**Prevention rule:** Before building any new display of lead data, check whether a display-layer helper already exists (`getSourceLabel`, `getStageLabel`, `getEffectiveStatus`) before querying raw values.
+
+**Commit:** 66f48ff
+
+---
+
+## INC — Pipeline stage chart showed outdated labels
+
+**Date:** 2026-06-25
+
+**What broke:** Stage distribution chart on Market Intel showed Contacted, Attempted, Nurture instead of Jason's renamed stages.
+
+**Root cause:** `MarketIntel.tsx` had a local `STAGE_LABELS` constant created before the June 19 stage rename. It was never updated when `pipelineStages.ts` was created as the single source of truth.
+
+**Fix applied:** Removed local constant, imported `getStageLabel()` from `pipelineStages.ts`. Commit `d838b33`.
+
+**Prevention rule:** When a single source of truth file is created (`pipelineStages.ts`, `leadSources.ts`), search the codebase for any existing duplicate logic that should be migrated to it.
+
+**Commit:** d838b33

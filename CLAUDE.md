@@ -89,3 +89,10 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Weekly activity metrics that use `updated_at` are vulnerable to inflation from batch operations like rescore. Document the limitation and plan a stage history table.
 - Stages advanced and deals closed metrics need a stage change event log to be accurate. `updated_at` is not a reliable proxy.
 - After any rescore run, Market Intel weekly metrics will show inflated numbers for that week. Warn Jason when a rescore is run.
+
+## Rules added 2026-06-25 (continued)
+
+- Never query raw lead source or stage values directly for display. Use `getSourceLabel()`, `getStageLabel()`, or `getEffectiveStatus()` from their respective single-source-of-truth files.
+- Never use `leads.updated_at` as a proxy for user activity in any metric. Use the `interactions` table. Batch operations (rescore, migrations) touch `updated_at` without representing real work.
+- Before building any new display of lead source or pipeline data, check `leadSources.ts` and `pipelineStages.ts` first for existing helpers.
+- When a metric could show a misleading zero (paid source with 0% response, no data yet), use the `buildingState` pattern to show a helpful message instead of a raw number.

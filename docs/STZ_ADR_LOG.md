@@ -681,3 +681,67 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 
 **Never do:** Mix GET and POST patterns for authenticated Netlify functions in this repo.
 
+---
+
+## ADR — Source performance table replaces pie chart
+
+**Date:** 2026-06-25
+
+**Decision:** Market Intel "Where your leads come from" section now shows a conversion table (total, worked, advanced, closed, conversion rate) per consolidated source group instead of a pie chart with raw DB values.
+
+**Layer:** L5 Evaluation
+
+**Context:** Pie chart showed `realtor_com_full`, `realtor_contacts`, `realtor_com_connections_plus` as separate slices. Looked like a debug screen. No conversion insight existed anywhere.
+
+**Consequence:** This table is the primary sales asset for demonstrating AgentPulse to other realtors. Any new lead source must be added to the `SOURCE_GROUP_ORDER` mapping in `marketIntelService.ts`.
+
+**Never do:** Display raw database source values anywhere in client-facing UI. Always consolidate through `getSourceLabel()` or source group mapping.
+
+---
+
+## ADR — Weekly activity metrics use interaction events not updated_at
+
+**Date:** 2026-06-25
+
+**Decision:** `stages_advanced` and `deals_closed` in `fetch-weekly-activity.ts` count distinct leads with an interaction in the week range, then check current `pipeline_stage`. Replaced the `updated_at`-based queries.
+
+**Layer:** Tech
+
+**Context:** Batch operations like rescore touch `updated_at` on hundreds of leads, making any metric based on `updated_at` unreliable as a proxy for real user activity. Verified: 808 inflated to 30 (matching leads worked) after the fix.
+
+**Consequence:** Any future metric measuring user activity must use the `interactions` table as source of truth, never `updated_at` on leads.
+
+**Never do:** Use `leads.updated_at` as a signal for "this happened because of user action." Batch scripts, rescoring, and migrations all touch `updated_at` without representing real activity.
+
+---
+
+## ADR — Pipeline stage labels centralized in pipelineStages.ts
+
+**Date:** 2026-06-25
+
+**Decision:** Removed the duplicate `STAGE_LABELS` constant in `MarketIntel.tsx`. All stage label display now goes through `getStageLabel()` from `src/lib/pipelineStages.ts`.
+
+**Layer:** Tech
+
+**Context:** `MarketIntel.tsx` had its own outdated label map showing Contacted, Attempted, Nurture instead of Jason's actual stage language. Two sources of truth had drifted apart.
+
+**Consequence:** Any new page or component that displays `pipeline_stage` must import `getStageLabel()` rather than defining its own label map.
+
+**Never do:** Create a second stage label mapping anywhere in the codebase. One source of truth only: `pipelineStages.ts`.
+
+---
+
+## ADR — MetricCard buildingState pattern for insufficient-data states
+
+**Date:** 2026-06-25
+
+**Decision:** `WeeklyActivitySummary` `MetricCard` accepts an optional `buildingState` prop that overrides the normal value and comparison display with a custom message when there is not yet enough data to show a meaningful metric.
+
+**Layer:** L1 Prompts (UI pattern)
+
+**Context:** Realtor.com Response showed a misleading 0.0% when Jason had not worked any Realtor.com leads in AgentPulse yet. A 0% on a paid source looks broken to a prospect.
+
+**Consequence:** Any future metric card with a similar cold-start problem should use the same `buildingState` pattern rather than inventing a new approach.
+
+**Never do:** Show a numeric 0 or 0% for a metric when the real meaning is "no data collected yet." Always distinguish "zero activity" from "zero results from real activity."
+

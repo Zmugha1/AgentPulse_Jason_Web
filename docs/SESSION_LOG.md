@@ -635,3 +635,42 @@ Blockers and open items:
 
 **Next session should start with:** Market Intel lead source performance table (Build 3 in the market intel sequence). Then SMS cross-platform fix.
 
+---
+
+## Session 2026-06-25 (continued, Market Intel sellability)
+
+**Commits this session:**
+
+- `66f48ff` — feat: market intel source performance table with conversion rates per source
+- `d838b33` — fix: pipeline stage chart uses jason's stage labels not raw db values
+- `1440ce7` — fix: stages advanced and deals closed use interaction events not updated_at
+- `5fb30d1` — fix: realtor.com response card shows building state when no data exists yet
+
+**ADRs added:** 4
+
+- Source performance table replaces pie chart
+- Weekly activity metrics use interaction events not updated_at
+- Pipeline stage labels centralized
+- MetricCard buildingState pattern
+
+**Incidents resolved:** 2
+
+- Source breakdown showed raw DB values, unsellable to prospects
+- Pipeline stage chart showed outdated labels
+
+**Production state at session end:**
+
+- Market Intel source performance table live: Zillow 1.1% conversion (9 closed), Realtor.com 0.0% (building), Other 0.0%
+- Pipeline stage chart shows Jason's full language throughout
+- Weekly activity metrics accurate: Stages Advanced 30 matches Leads Worked 30, Deals Closed correctly shows 0
+- Realtor.com Response shows N/A or Building state instead of misleading 0.0%
+
+**Open items:**
+
+- Y-axis label wrapping issue: "I've Attempted Contact" renders without space as "I've AttemptedContact" due to tight chart spacing. Cosmetic, low priority.
+- Zillow Advanced count (800 of 834) still high, likely includes leads with non-new stage from original CSV import, not necessarily real recent activity. Worth a closer look in a future session.
+- Duplicate email signature possible when model follows prompt instruction AND post-AI append both fire. Deduplication not yet built.
+- SMS cross-platform fix for non-Apple phones still pending.
+
+**Next session should start with:** Confirm Jason has used the new five-button workflow and Market Intel improvements for a few days. Then move to either SMS cross-platform fix or Realtor.com historical CSV import, whichever Jason needs most based on his usage.
+
