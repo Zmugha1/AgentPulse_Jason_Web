@@ -201,10 +201,10 @@ async function countLeadsInRange(
   return count ?? 0
 }
 
-async function countDistinctLeadsWorked(
+async function fetchDistinctLeadIdsWithInteractionsInRange(
   supabase: SupabaseClient,
   range: WeekRange,
-): Promise<number> {
+): Promise<Set<string>> {
   const leadIds = new Set<string>()
   let offset = 0
 
@@ -217,7 +217,9 @@ async function countDistinctLeadsWorked(
       .range(offset, offset + PAGE_SIZE - 1)
 
     if (error) {
-      throw new Error(`countDistinctLeadsWorked: ${error.message}`)
+      throw new Error(
+        `fetchDistinctLeadIdsWithInteractionsInRange: ${error.message}`,
+      )
     }
     if (!data?.length) break
 
@@ -229,45 +231,101 @@ async function countDistinctLeadsWorked(
     offset += PAGE_SIZE
   }
 
+  return leadIds
+}
+
+async function fetchLeadPipelineStagesByIds(
+  supabase: SupabaseClient,
+  leadIds: string[],
+): Promise<Map<string, string | null>> {
+  const stages = new Map<string, string | null>()
+  if (leadIds.length === 0) return stages
+
+  for (let i = 0; i < leadIds.length; i += PAGE_SIZE) {
+    const batch = leadIds.slice(i, i + PAGE_SIZE)
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id, pipeline_stage')
+      .in('id', batch)
+
+    if (error) {
+      throw new Error(`fetchLeadPipelineStagesByIds: ${error.message}`)
+    }
+
+    for (const row of data ?? []) {
+      stages.set(row.id, row.pipeline_stage)
+    }
+  }
+
+  return stages
+}
+
+function isAdvancedPipelineStage(stage: string | null): boolean {
+  const value = (stage ?? 'new').toLowerCase()
+  return !ADVANCED_EXCLUDED_STAGES.includes(
+    value as (typeof ADVANCED_EXCLUDED_STAGES)[number],
+  )
+}
+
+async function countDistinctLeadsWorked(
+  supabase: SupabaseClient,
+  range: WeekRange,
+): Promise<number> {
+  const leadIds = await fetchDistinctLeadIdsWithInteractionsInRange(
+    supabase,
+    range,
+  )
   return leadIds.size
 }
 
+/**
+ * Uses interaction events, not leads.updated_at. Counts distinct leads with
+ * an interaction in the week whose current pipeline_stage is advanced.
+ * Approximation until a stage history table exists.
+ */
 async function countStagesAdvanced(
   supabase: SupabaseClient,
   range: WeekRange,
 ): Promise<number> {
-  const { count, error } = await supabase
-    .from('leads')
-    .select('*', { count: 'exact', head: true })
-    .gte('updated_at', range.start)
-    .lt('updated_at', range.end)
-    .not(
-      'pipeline_stage',
-      'in',
-      `(${ADVANCED_EXCLUDED_STAGES.map((stage) => `"${stage}"`).join(',')})`,
-    )
+  const workedLeadIds = await fetchDistinctLeadIdsWithInteractionsInRange(
+    supabase,
+    range,
+  )
+  if (workedLeadIds.size === 0) return 0
 
-  if (error) {
-    throw new Error(`countStagesAdvanced: ${error.message}`)
+  const stages = await fetchLeadPipelineStagesByIds(supabase, [
+    ...workedLeadIds,
+  ])
+  let count = 0
+  for (const leadId of workedLeadIds) {
+    if (isAdvancedPipelineStage(stages.get(leadId) ?? null)) count++
   }
-  return count ?? 0
+  return count
 }
 
+/**
+ * Uses interaction events, not leads.updated_at. Counts closed leads that
+ * had user activity (an interaction) in the week range.
+ * Approximation until stage change events are logged.
+ */
 async function countDealsClosed(
   supabase: SupabaseClient,
   range: WeekRange,
 ): Promise<number> {
-  const { count, error } = await supabase
-    .from('leads')
-    .select('*', { count: 'exact', head: true })
-    .eq('pipeline_stage', 'closed')
-    .gte('updated_at', range.start)
-    .lt('updated_at', range.end)
+  const workedLeadIds = await fetchDistinctLeadIdsWithInteractionsInRange(
+    supabase,
+    range,
+  )
+  if (workedLeadIds.size === 0) return 0
 
-  if (error) {
-    throw new Error(`countDealsClosed: ${error.message}`)
+  const stages = await fetchLeadPipelineStagesByIds(supabase, [
+    ...workedLeadIds,
+  ])
+  let count = 0
+  for (const leadId of workedLeadIds) {
+    if ((stages.get(leadId) ?? '').toLowerCase() === 'closed') count++
   }
-  return count ?? 0
+  return count
 }
 
 type RealtorLeadRow = {
