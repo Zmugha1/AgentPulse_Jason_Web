@@ -53,6 +53,20 @@ function formatMetricValue(value: number | null, isRate: boolean): string {
   return String(value ?? 0)
 }
 
+function realtorBuildingState(
+  thisWeek: number | null,
+  lastWeek: number | null,
+): { value: string; subtitle: string } | undefined {
+  if (thisWeek === 0 && lastWeek === null) {
+    return {
+      value: 'Building...',
+      subtitle:
+        'Tracking starts as you work Realtor.com leads in AgentPulse',
+    }
+  }
+  return undefined
+}
+
 function isFullyEmpty(data: WeeklyActivityData): boolean {
   const weeks = [data.this_week, data.last_week]
   return weeks.every(
@@ -134,12 +148,17 @@ function MetricCard({
   thisWeek,
   lastWeek,
   isRate,
+  buildingState,
 }: {
   label: string
   accentClass: string
   thisWeek: number | null
   lastWeek: number | null
   isRate?: boolean
+  buildingState?: {
+    value: string
+    subtitle: string
+  }
 }) {
   return (
     <div
@@ -149,14 +168,22 @@ function MetricCard({
         {label}
       </div>
       <div className="font-body text-[28px] font-bold text-navy mt-2 leading-none">
-        {formatMetricValue(thisWeek, Boolean(isRate))}
+        {buildingState
+          ? buildingState.value
+          : formatMetricValue(thisWeek, Boolean(isRate))}
       </div>
       <div className="mt-2">
-        <ComparisonIndicator
-          thisWeek={thisWeek}
-          lastWeek={lastWeek}
-          isRate={isRate}
-        />
+        {buildingState ? (
+          <p className="font-label text-xs text-slate leading-relaxed">
+            {buildingState.subtitle}
+          </p>
+        ) : (
+          <ComparisonIndicator
+            thisWeek={thisWeek}
+            lastWeek={lastWeek}
+            isRate={isRate}
+          />
+        )}
       </div>
     </div>
   )
@@ -263,6 +290,14 @@ export default function WeeklyActivitySummary() {
           thisWeek={data.this_week[card.key]}
           lastWeek={data.last_week[card.key]}
           isRate={card.isRate}
+          buildingState={
+            card.key === 'realtor_response_rate'
+              ? realtorBuildingState(
+                  data.this_week.realtor_response_rate,
+                  data.last_week.realtor_response_rate,
+                )
+              : undefined
+          }
         />
       ))}
     </div>
