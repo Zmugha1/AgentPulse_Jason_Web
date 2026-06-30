@@ -4,4 +4,5 @@ export type AppTab =
   | 'intelligence'
   | 'market'
   | 'agentpulse'
+  | 'content-studio'
   | 'integrations'

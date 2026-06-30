@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import Sidebar from './components/Sidebar'
 import type { AppTab } from './lib/navigation'
 import { supabase } from './lib/supabase'
+import ContentStudio from './pages/ContentStudio'
 import Integrations from './pages/Integrations'
 import LeadIntelligence from './pages/LeadIntelligence'
 import MarketIntel from './pages/MarketIntel'
@@ -20,6 +21,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const path = window.location.pathname.replace(/\/+$/, '') || '/'
     if (path === '/integrations') return 'integrations'
+    if (path === '/content-studio') return 'content-studio'
     return 'brief'
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -28,6 +30,8 @@ function App() {
     const path = window.location.pathname.replace(/\/+$/, '') || '/'
     if (path === '/integrations') {
       setActiveTab('integrations')
+    } else if (path === '/content-studio') {
+      setActiveTab('content-studio')
     }
   }, [])
 
@@ -118,6 +122,7 @@ function App() {
               {activeTab === 'intelligence' && <LeadIntelligence />}
               {activeTab === 'market' && <MarketIntel />}
               {activeTab === 'agentpulse' && <MyAgentPulse />}
+              {activeTab === 'content-studio' && <ContentStudio />}
               {activeTab === 'integrations' && <Integrations />}
             </div>
           </main>

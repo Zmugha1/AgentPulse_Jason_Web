@@ -1,6 +1,7 @@
 // Icons: lucide-react — small tree-shakeable set, consistent with modern React nav patterns.
 import {
   BarChart3,
+  FileText,
   LayoutDashboard,
   Menu,
   Plug,
@@ -22,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'intelligence', label: 'Lead Intelligence', icon: Users },
   { id: 'market', label: 'Market Intel', icon: BarChart3 },
   { id: 'agentpulse', label: 'My AgentPulse', icon: UserCircle },
+  { id: 'content-studio', label: 'Content Studio', icon: FileText },
   { id: 'integrations', label: 'Integrations', icon: Plug },
 ]
 
