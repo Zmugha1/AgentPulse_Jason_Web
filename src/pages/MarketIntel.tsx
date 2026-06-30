@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
 import SourcePerformanceTable from '../components/SourcePerformanceTable'
+import { getStageLabel } from '../lib/pipelineStages'
 import {
   fetchWebsiteMetrics,
   getPoolHeadlineMetrics,
@@ -111,18 +112,6 @@ function getThisWeekSubtitle(now = new Date()): string {
   const mondayLabel = formatCentralYmd(monday, !sameYear)
   const sundayLabel = formatCentralYmd(sunday, true)
   return `Week of ${mondayLabel} -- ${sundayLabel}`
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  new: 'New',
-  contacted: 'Contacted',
-  attempted: 'Attempted',
-  nurture: 'Nurture',
-  appointment: 'Appointment',
-  showing: 'Showing',
-  offer: 'Offer',
-  closed: 'Closed',
-  dead: 'Dead',
 }
 
 function formatPercent(count: number, total: number): string {
@@ -636,7 +625,7 @@ export default function MarketIntel() {
   const stageChartData = useMemo(
     () =>
       (stages ?? []).map((row) => ({
-        stage: STAGE_LABELS[row.stage] ?? row.stage,
+        stage: getStageLabel(row.stage),
         count: row.count,
       })),
     [stages],
@@ -761,7 +750,7 @@ export default function MarketIntel() {
               <YAxis
                 type="category"
                 dataKey="stage"
-                width={110}
+                width={160}
                 tick={{ fontSize: 12 }}
               />
               <Tooltip />
