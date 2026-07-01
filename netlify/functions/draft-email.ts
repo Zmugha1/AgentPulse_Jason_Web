@@ -135,7 +135,6 @@ function formatLeadContext(lead: LeadRow): string {
     `Address: ${lead.address ?? 'none'}`,
     `Budget max: ${lead.budget_max ?? 'unknown'}`,
     `Listing price: ${lead.listing_price ?? 'unknown'}`,
-    `Phone: ${lead.phone ?? 'none'}`,
   ].join('\n')
 }
 
@@ -154,7 +153,7 @@ function buildEmailPrompt(
     '- Return JSON only, no markdown fences:',
     '{"subject":"...","body":"..."}',
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
-    '- Do not write a signature, sign-off name, phone number, or closing contact information at the end of the email. End the body with the call to action only. The signature will be added separately and automatically.',
+    '- Do not include any phone number anywhere in the email body. Do not use the lead phone number from the lead data. Do not write a signature, sign-off name, or closing contact block. End the body with the call to action only. The signature with Jason\'s real contact information will be appended automatically after generation.',
   ]
   return [
     'Write a professional real estate email for this lead.',
