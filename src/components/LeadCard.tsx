@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Lead, LeadStatus } from '../lib/types'
+import { getEffectiveStatus, type Lead, type LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
 import { getStageLabel } from '../lib/pipelineStages'
 import { logInteraction } from '../services/interactionsService'
@@ -163,7 +163,7 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
 
   return (
     <article
-      className={`bg-white rounded-lg border-2 p-4 transition-opacity duration-300 ${statusBorderClass(lead.status)} ${fading ? 'opacity-0' : 'opacity-100'}`}
+      className={`bg-white rounded-lg border-2 p-4 transition-opacity duration-300 ${statusBorderClass(getEffectiveStatus(lead))} ${fading ? 'opacity-0' : 'opacity-100'}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div>
@@ -178,12 +178,12 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
         </div>
         <div className="text-right">
           <div
-            className={`font-label text-3xl font-bold ${statusTextClass(lead.status)}`}
+            className={`font-label text-3xl font-bold ${statusTextClass(getEffectiveStatus(lead))}`}
           >
             {lead.score ?? 0}
           </div>
           <div className="font-label text-xs uppercase text-slate">
-            {(lead.status ?? 'cold').toUpperCase()}
+            {getEffectiveStatus(lead).toUpperCase()}
           </div>
         </div>
       </div>

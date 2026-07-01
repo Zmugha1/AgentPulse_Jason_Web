@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import type { Lead } from '../lib/types'
 
 const LEAD_SELECT =
-  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at'
+  'id, first_name, last_name, email, phone, address, zip, source, original_lead_date, last_contact_at, pipeline_stage, score, status, has_home_to_sell, buying_or_renting, lender_status, budget_max, listing_price, purpose, is_archived, created_at, updated_at, status_override'
 
 function recencyCutoffIso(months: number): string {
   const cutoff = new Date()
