@@ -154,13 +154,8 @@ function buildEmailPrompt(
     '- Return JSON only, no markdown fences:',
     '{"subject":"...","body":"..."}',
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
+    '- Do not write a signature, sign-off name, phone number, or closing contact information at the end of the email. End the body with the call to action only. The signature will be added separately and automatically.',
   ]
-  const trimmedSignature = emailSignature?.trim()
-  if (trimmedSignature) {
-    rules.push(
-      `- End the email with this exact signature on a new line, do not modify it:\n${trimmedSignature}`,
-    )
-  }
   return [
     'Write a professional real estate email for this lead.',
     '',
