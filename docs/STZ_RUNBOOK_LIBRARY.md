@@ -607,3 +607,25 @@
 
 **Watch out for:** Netlify functions cache their imports — redeploy required after any change to `stzProfileService.ts` patterns.
 
+---
+
+## RUN — Add a Content Studio generator
+
+**Task:** Add a new AI content generator to Content Studio (Social Posts, Listings, Market Update, etc.).
+
+**Trigger:** New content type tab needs generation backed by Anthropic in Jason's voice.
+
+**Steps:**
+
+1. Copy pattern from `netlify/functions/generate-newsletter.ts` (or `draft-email.ts` for simpler drafts).
+2. Create `netlify/functions/generate-[type].ts` with: `requireAuthenticatedUser`, `getServiceSupabase`, `STZ_PROFILE_SELECT` including `email_signature`, `formatStzProfile()`, `buildPrompt()`, `tryParseJsonPayload()`, `callAnthropic`.
+3. Add redirect to `netlify.toml`: `/api/generate-[type]` → `/.netlify/functions/generate-[type]`
+4. Create `src/components/content-studio/[Type]Generator.tsx` following `NewsletterGenerator.tsx` (idle/loading/success/error, Bearer auth, copy buttons).
+5. Wire into `ContentStudio.tsx` for the matching tab only.
+6. `npm run build` — zero TypeScript errors.
+7. One commit per content type. Wait for approve push. Verify live before next type.
+
+**Expected output:** New tab generates content in Jason's voice, copy buttons work, signature appended if set (where applicable).
+
+**Watch out for:** No em dashes in prompts or output. Never include lead phone in email-style prompts. One commit per generator only.
+

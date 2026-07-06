@@ -674,3 +674,49 @@ Blockers and open items:
 
 **Next session should start with:** Confirm Jason has used the new five-button workflow and Market Intel improvements for a few days. Then move to either SMS cross-platform fix or Realtor.com historical CSV import, whichever Jason needs most based on his usage.
 
+---
+
+## Session 2026-07-01
+
+**Commits this session:**
+
+- `eb3a883` — feat: content studio page shell and sidebar navigation
+- `e7b8b0b` — fix: morning brief now respects manual status overrides from lead intelligence
+- `fda6b76` — fix: prevent duplicate signature, ai never writes sign-off, single programmatic append only
+- `61bc60c` — fix: remove lead phone from email prompt context, prevent model from hallucinating phone numbers in call to action
+- `b1bf01f` — fix: replace dead status label with archived everywhere in ui per jason request
+- `59e9c69` — feat: content studio newsletter generator in jason's voice
+
+**ADRs added:** 5
+
+- Morning Brief must use getEffectiveStatus and fetch status_override
+- Email signature appended programmatically only
+- Lead phone excluded from email draft prompt
+- Dead status displays as Archived in UI
+- Content Studio generators follow draft-email pattern
+
+**Incidents resolved:** 4
+
+- Morning Brief ignored manual status overrides
+- Duplicate email signature in drafts
+- Wrong phone in email CTA (lead phone, not Jason's)
+- Dead status label user-unfriendly
+
+**Production state at session end:**
+
+- Content Studio sidebar tab live with four in-page tabs
+- Newsletter generator live: topic + tone form, subject/body output, copy buttons, signature append
+- Morning Brief status matches Lead Intelligence overrides (verified Cassandra Hinton, Christine Rapp, Kimberly Stammer show Cold)
+- Email drafts: single signature append, no lead phone in prompt
+- Dead status shows as ARCHIVED in UI
+
+**Open items:**
+
+- Fix 2 signature logo upload (email_signature_logo_url, profile-assets bucket) not started
+- Content Studio Parts C through E pending: Social Posts, Listings, Market Update
+- Y-axis label wrapping on pipeline stage chart still cosmetic
+- SMS cross-platform fix still pending
+- Realtor.com historical CSV import still pending
+
+**Next session should start with:** Content Studio Part C (Social Posts generator), or Fix 2 logo support if Jason prioritizes signature branding. Verify newsletter generator with Jason on live before building Part C.
+

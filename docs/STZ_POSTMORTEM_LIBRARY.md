@@ -486,3 +486,67 @@ c) Walk the user through a generation step that captures the value directly into
 **Prevention rule:** When a single source of truth file is created (`pipelineStages.ts`, `leadSources.ts`), search the codebase for any existing duplicate logic that should be migrated to it.
 
 **Commit:** d838b33
+
+---
+
+## INC — Morning Brief ignored manual status overrides
+
+**Date:** 2026-07-01
+
+**What broke:** Leads set to Cold in Lead Intelligence via StatusPill still showed Hot on Morning Brief (Cassandra Hinton, Christine Rapp, Kimberly Stammer).
+
+**Root cause:** `morningBriefService.ts` LEAD_SELECT omitted `status_override`. `LeadCard.tsx` used `lead.status` directly instead of `getEffectiveStatus(lead)`.
+
+**Fix applied:** Added `status_override` to LEAD_SELECT. Switched LeadCard to `getEffectiveStatus()`. Commit `e7b8b0b`. Verified live.
+
+**Prevention rule:** Any new lead-fetching service for a status-displaying view must include `status_override` and use `getEffectiveStatus()` for display.
+
+**Commit:** e7b8b0b
+
+---
+
+## INC — Duplicate email signature in generated drafts
+
+**Date:** 2026-07-01
+
+**What broke:** Email drafts showed Jason's signature twice at the bottom.
+
+**Root cause:** `draft-email.ts` told the model to end the email with the exact signature AND appended the same signature programmatically after the response.
+
+**Fix applied:** Removed signature instruction from prompt. Added explicit "do not write sign-off" rule. Kept single programmatic append. Commit `fda6b76`.
+
+**Prevention rule:** Signature is always appended after AI response, never written by the model. One source only.
+
+**Commit:** fda6b76
+
+---
+
+## INC — Wrong phone number in email call to action
+
+**Date:** 2026-07-01
+
+**What broke:** Generated email draft included `262-449-9526` in the call to action. That is Sarah Schmidt's lead phone, not Jason's.
+
+**Root cause:** `formatLeadContext()` passed `Phone: ${lead.phone}` into the prompt. Model used lead phone as agent contact. STZ profile had correct `262-623-7175` in signature only.
+
+**Fix applied:** Removed Phone line from `formatLeadContext()`. Strengthened no-phone rule in prompt. Commit `61bc60c`.
+
+**Prevention rule:** Never include lead phone in outbound email generation prompts. Diagnose wrong numbers by checking lead data in prompt before checking STZ answers.
+
+**Commit:** 61bc60c
+
+---
+
+## INC — Dead status label user-unfriendly
+
+**Date:** 2026-07-01
+
+**What broke:** Status pills and Morning Brief cards showed "DEAD" for archived-style leads. Jason wanted "Archived."
+
+**Root cause:** UI rendered raw `lead.status` value uppercased. Override dropdown label was "Dead."
+
+**Fix applied:** `displayStatus()` in StatusPill maps `dead` to `ARCHIVED`. LeadCard same. Dropdown label "Archived". DB value unchanged. Commit `b1bf01f`.
+
+**Prevention rule:** User-facing status labels can differ from DB values via display mapping. Do not rename DB enum without explicit migration scope.
+
+**Commit:** b1bf01f

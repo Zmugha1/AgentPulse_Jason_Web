@@ -96,3 +96,11 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Never use `leads.updated_at` as a proxy for user activity in any metric. Use the `interactions` table. Batch operations (rescore, migrations) touch `updated_at` without representing real work.
 - Before building any new display of lead source or pipeline data, check `leadSources.ts` and `pipelineStages.ts` first for existing helpers.
 - When a metric could show a misleading zero (paid source with 0% response, no data yet), use the `buildingState` pattern to show a helpful message instead of a raw number.
+
+## Rules added 2026-07-01
+
+- Morning Brief and any status-displaying view must use `getEffectiveStatus(lead)` for display, never raw `lead.status`. Services feeding those views must SELECT `status_override`.
+- Email signature is appended programmatically after AI response only. Never instruct the model to write sign-off, phone, or signature in the prompt when also appending signature in code.
+- Outbound email draft prompts must not include the lead's phone number. Lead phone is visible on the lead row; contact info in drafts comes from appended signature.
+- User-facing "dead" status displays as "Archived" in UI. Database value stays `dead` unless a migration is explicitly scoped.
+- Content Studio: one content type per commit. Each generator follows `draft-email.ts` auth + STZ profile + Anthropic pattern. Newsletter (`generate-newsletter.ts`) is the reference for Parts C through E.

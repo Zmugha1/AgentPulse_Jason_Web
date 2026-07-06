@@ -745,3 +745,83 @@ Should show expected number of lines. If file is mangled, open in Notepad and ma
 
 **Never do:** Show a numeric 0 or 0% for a metric when the real meaning is "no data collected yet." Always distinguish "zero activity" from "zero results from real activity."
 
+---
+
+## ADR — Morning Brief must use getEffectiveStatus and fetch status_override
+
+**Date:** 2026-07-01
+
+**Decision:** `morningBriefService.ts` LEAD_SELECT includes `status_override`. `LeadCard.tsx` displays status via `getEffectiveStatus(lead)`, not raw `lead.status`.
+
+**Layer:** Tech
+
+**Context:** Jason set leads to Cold in Lead Intelligence via StatusPill. Morning Brief still showed Hot because it neither fetched `status_override` nor used `getEffectiveStatus()`.
+
+**Consequence:** Any view that displays lead status must import `getEffectiveStatus()` and any service that feeds that view must include `status_override` in its SELECT.
+
+**Never do:** Read `lead.status` directly for display when manual overrides exist.
+
+---
+
+## ADR — Email signature appended programmatically only
+
+**Date:** 2026-07-01
+
+**Decision:** `draft-email.ts` forbids the model from writing sign-off or signature. Signature appended once after AI response only.
+
+**Layer:** Tech
+
+**Context:** Prompt told model to write signature AND code appended it again. Duplicate signatures in drafts.
+
+**Consequence:** All AI draft functions with signature append must never include signature in the model prompt.
+
+**Never do:** Belt-and-suspenders signature in both prompt and post-response append.
+
+---
+
+## ADR — Lead phone excluded from email draft prompt
+
+**Date:** 2026-07-01
+
+**Decision:** Removed lead phone from `formatLeadContext()` in `draft-email.ts`.
+
+**Layer:** Tech
+
+**Context:** Model used Sarah Schmidt's phone `262-449-9526` in CTA as Jason's number. Source was lead data in prompt, not STZ profile.
+
+**Consequence:** Outbound email prompts exclude lead phone. Contact info from appended signature only.
+
+**Never do:** Pass lead phone into email generation prompt context.
+
+---
+
+## ADR — Dead status displays as Archived in UI
+
+**Date:** 2026-07-01
+
+**Decision:** UI maps `dead` to "ARCHIVED" / "Archived". DB value unchanged.
+
+**Layer:** L1 Prompts (UI)
+
+**Context:** Jason requested replacing Dead label with Archived user-facing.
+
+**Consequence:** Display mapping in StatusPill and LeadCard only.
+
+**Never do:** Rename DB `status` value without explicit migration scope.
+
+---
+
+## ADR — Content Studio generators follow draft-email pattern
+
+**Date:** 2026-07-01
+
+**Decision:** One Netlify function per content type, one commit each. Auth + STZ profile + Anthropic + JSON parse + optional signature append.
+
+**Layer:** Tech
+
+**Context:** Newsletter shipped as `generate-newsletter.ts`. Social, Listings, Market Update queued.
+
+**Consequence:** `generate-newsletter.ts` is reference for Parts C through E.
+
+**Never do:** Bundle multiple Content Studio generators into one commit.
+

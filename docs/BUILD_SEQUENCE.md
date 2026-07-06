@@ -1,8 +1,8 @@
 # AgentPulse Build Sequence — Phase 7 and beyond
 
-Last updated: 2026-06-08
+Last updated: 2026-07-01
 Owner: Dr. Zubia Mughal
-Status: Phase 7a, 7a-extended, and password reset complete. Next: Market Intel / GA4 (2026-06-10).
+Status: Content Studio Part B (Newsletter) shipped. Parts C through E queued. Signature logo upload (Fix 2) not started.
 
 ## Why this file exists
 
@@ -11,6 +11,21 @@ ends, the next session reads this file before starting work.
 Prevents losing roadmap across cold starts.
 
 ## Build priority (in order)
+
+### IN PROGRESS — Content Studio
+- Part A: Page shell and sidebar — COMPLETE (eb3a883)
+- Part B: Newsletter generator — COMPLETE (59e9c69)
+- Part C: Social Posts generator (Facebook, Instagram, LinkedIn) — Queued
+- Part D: Listing description generator — Queued
+- Part E: Market update blurb generator — Queued
+- Pattern: one Netlify function + one component per commit, replicate `draft-email.ts` / `generate-newsletter.ts`
+- Redirect: `/api/generate-[type]` per function
+
+### QUEUED — Signature logo upload (Fix 2)
+- Migration: `email_signature_logo_url` on `stz_profile`
+- Requires `profile-assets` public Supabase storage bucket (manual setup)
+- UI on My AgentPulse: upload or URL, preview, save with signature
+- `draft-email.ts`: append `[Logo: {url}]` placeholder after signature
 
 ### NEXT UP — Market Intel / GA4 / Search Console integration
 - Planned start: 2026-06-10 (Wednesday, post-Jason demo)
