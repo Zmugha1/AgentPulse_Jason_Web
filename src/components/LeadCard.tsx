@@ -183,7 +183,9 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
             {lead.score ?? 0}
           </div>
           <div className="font-label text-xs uppercase text-slate">
-            {getEffectiveStatus(lead).toUpperCase()}
+            {getEffectiveStatus(lead) === 'dead'
+              ? 'ARCHIVED'
+              : getEffectiveStatus(lead).toUpperCase()}
           </div>
         </div>
       </div>

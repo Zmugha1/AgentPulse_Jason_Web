@@ -14,7 +14,7 @@ const OVERRIDE_OPTIONS: { value: LeadStatus | null; label: string }[] = [
   { value: 'hot', label: 'Hot' },
   { value: 'warm', label: 'Warm' },
   { value: 'cold', label: 'Cold' },
-  { value: 'dead', label: 'Dead' },
+  { value: 'dead', label: 'Archived' },
   { value: null, label: 'Reset to calculated' },
 ]
 
@@ -39,6 +39,11 @@ function pillStyles(status: LeadStatus): CSSProperties {
     backgroundColor: hexWithAlpha(color, 0.15),
     borderColor: hexWithAlpha(color, 0.4),
   }
+}
+
+function displayStatus(status: string): string {
+  if (status === 'dead') return 'ARCHIVED'
+  return status.toUpperCase()
 }
 
 export default function StatusPill({
@@ -78,7 +83,7 @@ export default function StatusPill({
   if (readonly) {
     return (
       <span className={pillClass} style={pillStyles(effective)}>
-        {effective}
+        {displayStatus(effective)}
         {hasOverride ? (
           <Pencil className="w-3 h-3 shrink-0" aria-hidden />
         ) : null}
@@ -97,7 +102,7 @@ export default function StatusPill({
         className={`${pillClass} cursor-pointer hover:opacity-80`}
         style={pillStyles(effective)}
       >
-        {effective}
+        {displayStatus(effective)}
         {hasOverride ? (
           <Pencil className="w-3 h-3 shrink-0" aria-hidden />
         ) : null}
