@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import NewsletterGenerator from '../components/content-studio/NewsletterGenerator'
 
 type ContentStudioTab = 'newsletter' | 'social-posts' | 'listings' | 'market-update'
 
@@ -45,7 +46,10 @@ export default function ContentStudio() {
       </div>
 
       <section className="bg-white border border-mint rounded-lg p-6 md:p-8">
-        <p className="font-body text-base text-slate">Coming in this session</p>
+        {activeTab === 'newsletter' && <NewsletterGenerator />}
+        {activeTab !== 'newsletter' ? (
+          <p className="font-body text-base text-slate">Coming in this session</p>
+        ) : null}
       </section>
     </div>
   )
