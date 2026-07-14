@@ -153,7 +153,7 @@ function buildEmailPrompt(
     '- Return JSON only, no markdown fences:',
     '{"subject":"...","body":"..."}',
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
-    '- Do not include any phone number anywhere in the email body. Do not use the lead phone number from the lead data. Do not write a signature, sign-off name, or closing contact block. End the body with the call to action only. The signature with Jason\'s real contact information will be appended automatically after generation.',
+    '- CRITICAL: Do not write any phone number anywhere in this email. Not in the body, not in the closing, not in the call to action, not anywhere. This is a hard rule. The email must end with the call to action sentence only. No phone number. No name. No company. No URL. The agent will add their own signature manually in Gmail after copying this email body.',
   ]
   return [
     'Write a professional real estate email for this lead.',
@@ -296,12 +296,6 @@ export const handler: Handler = async (event) => {
       const draft = await callAnthropicForEmail(prompt)
       subject = draft.subject
       emailBody = draft.body
-      const trimmedSignature = emailSignature?.trim()
-      if (trimmedSignature) {
-        if (!emailBody.includes(trimmedSignature)) {
-          emailBody = `${emailBody}\n\n${trimmedSignature}`
-        }
-      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Anthropic request failed'
       safeLog('anthropic_call_failed', {
