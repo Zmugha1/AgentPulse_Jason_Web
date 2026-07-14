@@ -298,7 +298,9 @@ export const handler: Handler = async (event) => {
       emailBody = draft.body
       const trimmedSignature = emailSignature?.trim()
       if (trimmedSignature) {
-        emailBody = `${emailBody}\n\n${trimmedSignature}`
+        if (!emailBody.includes(trimmedSignature)) {
+          emailBody = `${emailBody}\n\n${trimmedSignature}`
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Anthropic request failed'
