@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ListingDescriptionGenerator from '../components/content-studio/ListingDescriptionGenerator'
 import NewsletterGenerator from '../components/content-studio/NewsletterGenerator'
 import SocialPostGenerator from '../components/content-studio/SocialPostGenerator'
 
@@ -49,7 +50,8 @@ export default function ContentStudio() {
       <section className="bg-white border border-mint rounded-lg p-6 md:p-8">
         {activeTab === 'newsletter' && <NewsletterGenerator />}
         {activeTab === 'social-posts' && <SocialPostGenerator />}
-        {activeTab === 'listings' || activeTab === 'market-update' ? (
+        {activeTab === 'listings' && <ListingDescriptionGenerator />}
+        {activeTab === 'market-update' ? (
           <p className="font-body text-base text-slate">Coming in this session</p>
         ) : null}
       </section>

@@ -73,6 +73,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-listing-description"
+  to = "/.netlify/functions/generate-listing-description"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-call-script"
   to = "/.netlify/functions/draft-call-script"
   status = 200
