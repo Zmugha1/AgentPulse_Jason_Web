@@ -9,6 +9,7 @@ import EmailModal from './EmailModal'
 import CallScriptModal from './CallScriptModal'
 import LeadEnrichmentModal from './LeadEnrichmentModal'
 import DoneMenu from './DoneMenu'
+import SourceBadge from './SourceBadge'
 
 function displayName(lead: Lead): string {
   const name = `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.trim()
@@ -168,6 +169,9 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div>
           <h3 className="font-heading text-xl text-navy">{displayName(lead)}</h3>
+          <div className="mt-1">
+            <SourceBadge source={lead.source} size="sm" />
+          </div>
           <p className="font-body text-sm text-slate mt-1">{briefReason(lead)}</p>
           {lead.purpose?.trim() ? (
             <p className="font-body text-xs text-slate mt-1">
