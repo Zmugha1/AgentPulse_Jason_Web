@@ -15,7 +15,7 @@ function displayName(lead: Lead): string {
   return name || lead.email || lead.phone || 'Lead'
 }
 
-function formatSmsHref(phone: string, body: string): string {
+function formatTelHref(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   let normalized = digits
   if (digits.length === 10) {
@@ -25,7 +25,7 @@ function formatSmsHref(phone: string, body: string): string {
   } else if (digits.length > 0) {
     normalized = `+${digits}`
   }
-  return `sms:${normalized}?body=${encodeURIComponent(body)}`
+  return `tel:${normalized}`
 }
 
 function hasUsablePhone(phone: string | null): boolean {
@@ -36,6 +36,7 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -43,6 +44,7 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
     async function loadDraft() {
       setLoading(true)
       setError(null)
+      setCopied(false)
 
       const { data: sessionData, error: sessionError } =
         await supabase.auth.getSession()
@@ -77,8 +79,17 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
           return
         }
 
+        const smsDraft = body.sms_draft?.trim() ?? ''
         if (!cancelled) {
-          setDraft(body.sms_draft?.trim() ?? '')
+          setDraft(smsDraft)
+          if (smsDraft) {
+            try {
+              await navigator.clipboard.writeText(smsDraft)
+              if (!cancelled) setCopied(true)
+            } catch {
+              // Clipboard may be blocked; Copy Text button remains available
+            }
+          }
         }
       } catch {
         if (!cancelled) {
@@ -99,6 +110,18 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
 
   const charCount = draft.length
   const phoneOk = hasUsablePhone(lead.phone)
+  const actionsReady = Boolean(draft.trim()) && !loading && !error
+
+  async function handleCopyText() {
+    if (!draft.trim()) return
+    try {
+      await navigator.clipboard.writeText(draft)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setError('Could not copy to clipboard')
+    }
+  }
 
   function handleOutcome(outcome: 'texted' | 'not_sent') {
     onOutcome?.(outcome)
@@ -158,7 +181,12 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
                 <p className="font-body text-sm text-coral">
                   No phone number on file for this lead
                 </p>
-              ) : null}
+              ) : (
+                <p className="font-label text-xs text-slate">
+                  Copy the message above, then open your messaging app and paste
+                  to {lead.phone}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -183,21 +211,37 @@ export default function SmsModal({ lead, onClose, onOutcome }: SmsModalProps) {
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2 justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
-          >
-            Close
-          </button>
-          {phoneOk && draft.trim() && !loading && !error ? (
-            <a
-              href={formatSmsHref(lead.phone!, draft.trim())}
-              className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy inline-flex items-center"
+            <button
+              type="button"
+              onClick={onClose}
+              className="font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30"
             >
-              Open in Messages
-            </a>
-          ) : null}
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCopyText()}
+              disabled={!phoneOk || !actionsReady}
+              className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {copied ? 'Copied' : 'Copy Text'}
+            </button>
+            {phoneOk && actionsReady ? (
+              <a
+                href={formatTelHref(lead.phone!)}
+                className="font-body text-sm text-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-teal/10 inline-flex items-center"
+              >
+                Call Instead
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="font-body text-sm text-teal border border-teal rounded px-4 py-2 min-h-[44px] opacity-50 cursor-not-allowed"
+              >
+                Call Instead
+              </button>
+            )}
           </div>
         </div>
       </div>
