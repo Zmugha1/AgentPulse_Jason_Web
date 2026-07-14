@@ -68,6 +68,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-social-post"
+  to = "/.netlify/functions/generate-social-post"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-call-script"
   to = "/.netlify/functions/draft-call-script"
   status = 200
