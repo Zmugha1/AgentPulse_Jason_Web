@@ -112,13 +112,22 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       }
     })
     parser.on('pdfParser_dataError', (err: { parserError?: Error } | Error) => {
-      const message =
-        err && typeof err === 'object' && 'parserError' in err && err.parserError
-          ? err.parserError.message
-          : err instanceof Error
-            ? err.message
-            : 'PDF parse error'
-      reject(new Error(message))
+      const raw =
+        err && typeof err === 'object' && 'parserError' in err
+          ? (err as { parserError?: unknown }).parserError ?? err
+          : err
+      safeLog('pdf2json_error', {
+        message: String(raw).slice(0, 300),
+      })
+      reject(
+        new Error(
+          String(
+            err && typeof err === 'object' && 'parserError' in err
+              ? (err as { parserError?: unknown }).parserError ?? 'PDF parse error'
+              : 'PDF parse error',
+          ),
+        ),
+      )
     })
     parser.parseBuffer(buffer)
   })
@@ -178,8 +187,9 @@ export const handler: Handler = async (event) => {
     try {
       text = await extractTextFromPdf(pdfBuffer)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      safeLog('pdf_parse_failed', { message: message.slice(0, 200) })
+      safeLog('pdf_parse_error', {
+        message: err instanceof Error ? err.message.slice(0, 300) : 'unknown error',
+      })
       return json(500, {
         code: 'internal_error',
         message: 'Failed to extract text from PDF',
