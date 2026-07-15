@@ -78,6 +78,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-market-blurb"
+  to = "/.netlify/functions/generate-market-blurb"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-call-script"
   to = "/.netlify/functions/draft-call-script"
   status = 200
