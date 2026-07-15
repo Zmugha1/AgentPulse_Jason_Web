@@ -83,6 +83,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/extract-pdf-text"
+  to = "/.netlify/functions/extract-pdf-text"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-call-script"
   to = "/.netlify/functions/draft-call-script"
   status = 200

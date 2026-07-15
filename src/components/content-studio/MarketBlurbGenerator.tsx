@@ -28,6 +28,10 @@ export default function MarketBlurbGenerator() {
   const [blogIntro, setBlogIntro] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
+  const [pdfExtracting, setPdfExtracting] = useState(false)
+  const [pdfExtractSuccess, setPdfExtractSuccess] = useState(false)
+  const [pdfExtractError, setPdfExtractError] = useState<string | null>(null)
+  const [pdfInputKey, setPdfInputKey] = useState(0)
 
   async function runGenerate() {
     if (!angle.trim()) {
@@ -102,6 +106,81 @@ export default function MarketBlurbGenerator() {
     }
   }
 
+  async function handlePdfSelect(file: File | null) {
+    if (!file) return
+
+    setPdfExtractError(null)
+    setPdfExtractSuccess(false)
+
+    if (file.type && file.type !== 'application/pdf') {
+      setMarketData('')
+      setPdfExtractError('Please upload a PDF file')
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMarketData('')
+      setPdfExtractError('PDF must be 5MB or smaller')
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+
+    setPdfExtracting(true)
+
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (sessionError || !token) {
+      setMarketData('')
+      setPdfExtractError('Please sign in again')
+      setPdfExtracting(false)
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('pdf', file)
+
+      const res = await fetch('/api/extract-pdf-text', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      const payload = (await res.json()) as {
+        text?: string
+        message?: string
+      }
+
+      if (!res.ok) {
+        setMarketData('')
+        setPdfExtractError(payload.message ?? 'Could not extract text from PDF')
+        setPdfInputKey((k) => k + 1)
+        return
+      }
+
+      const text = payload.text?.trim() ?? ''
+      if (!text) {
+        setMarketData('')
+        setPdfExtractError('No text could be extracted from this PDF')
+        setPdfInputKey((k) => k + 1)
+        return
+      }
+
+      setMarketData(text)
+      setPdfExtractSuccess(true)
+    } catch {
+      setMarketData('')
+      setPdfExtractError('Could not extract text from PDF')
+      setPdfInputKey((k) => k + 1)
+    } finally {
+      setPdfExtracting(false)
+    }
+  }
+
   function handleGenerateAnother() {
     setPhase('idle')
     setArea('')
@@ -112,6 +191,10 @@ export default function MarketBlurbGenerator() {
     setBlogIntro('')
     setError(null)
     setCopyFeedback(null)
+    setPdfExtracting(false)
+    setPdfExtractSuccess(false)
+    setPdfExtractError(null)
+    setPdfInputKey((k) => k + 1)
   }
 
   if (phase === 'loading') {
@@ -263,17 +346,59 @@ export default function MarketBlurbGenerator() {
       </div>
 
       <div>
+        <label htmlFor="market-pdf-upload" className={labelClass}>
+          Upload MLS Market Report (optional)
+        </label>
+        <p className="font-body text-sm text-slate mt-1">
+          Upload your Metro MLS PDF report and we will extract the stats
+          automatically
+        </p>
+        <input
+          key={pdfInputKey}
+          id="market-pdf-upload"
+          type="file"
+          accept=".pdf,application/pdf"
+          disabled={pdfExtracting}
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null
+            void handlePdfSelect(file)
+          }}
+          className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-mint file:px-3 file:py-1 file:font-body file:text-sm file:text-navy`}
+        />
+        {pdfExtracting ? (
+          <p className="font-body text-sm text-slate mt-2 flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
+            Extracting stats from PDF...
+          </p>
+        ) : null}
+        {pdfExtractError ? (
+          <p className="font-body text-sm text-coral mt-2" role="alert">
+            {pdfExtractError}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
         <label htmlFor="market-data" className={labelClass}>
           Paste market stats (optional)
         </label>
         <textarea
           id="market-data"
           value={marketData}
-          onChange={(e) => setMarketData(e.target.value)}
+          onChange={(e) => {
+            setMarketData(e.target.value)
+            if (pdfExtractSuccess) setPdfExtractSuccess(false)
+            if (pdfExtractError) setPdfExtractError(null)
+          }}
           rows={6}
           placeholder="e.g. Closed sales up 7%, median price $400k, 19 days on market, inventory up 8.6%"
           className={inputClass}
         />
+        {pdfExtractSuccess ? (
+          <p className="font-body text-sm text-teal mt-2" role="status">
+            Stats extracted from PDF
+          </p>
+        ) : null}
       </div>
 
       <button type="submit" className={`${primaryButtonClass} w-full`}>
