@@ -1,5 +1,5 @@
 import type { Handler, HandlerEvent } from '@netlify/functions'
-import { PDFParse } from 'pdf-parse'
+import PDFParser from 'pdf2json'
 import { OAuthAuthError, requireAuthenticatedUser } from './google-oauth-shared'
 
 const LOG_MODULE = 'extract-pdf-text'
@@ -93,15 +93,35 @@ function extractPdfField(body: Buffer, contentType: string): Buffer | null {
   return null
 }
 
-async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
-  // pdf-parse v2 API (installed package). Buffer load via { data }.
-  const parser = new PDFParse({ data: pdfBuffer })
-  try {
-    const result = await parser.getText()
-    return (result.text ?? '').trim()
-  } finally {
-    await parser.destroy().catch(() => undefined)
-  }
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser(null, 1)
+    parser.on('pdfParser_dataReady', (data) => {
+      try {
+        const text = (data.Pages ?? [])
+          .flatMap((page: { Texts?: Array<{ R?: Array<{ T?: string }> }> }) =>
+            (page.Texts ?? []).map((t) =>
+              decodeURIComponent(t.R?.[0]?.T ?? ''),
+            ),
+          )
+          .join(' ')
+          .trim()
+        resolve(text)
+      } catch (err) {
+        reject(err)
+      }
+    })
+    parser.on('pdfParser_dataError', (err: { parserError?: Error } | Error) => {
+      const message =
+        err && typeof err === 'object' && 'parserError' in err && err.parserError
+          ? err.parserError.message
+          : err instanceof Error
+            ? err.message
+            : 'PDF parse error'
+      reject(new Error(message))
+    })
+    parser.parseBuffer(buffer)
+  })
 }
 
 export const handler: Handler = async (event) => {
