@@ -2,15 +2,22 @@ import { useState } from 'react'
 import ListingDescriptionGenerator from '../components/content-studio/ListingDescriptionGenerator'
 import MarketBlurbGenerator from '../components/content-studio/MarketBlurbGenerator'
 import NewsletterGenerator from '../components/content-studio/NewsletterGenerator'
+import PodcastGenerator from '../components/content-studio/PodcastGenerator'
 import SocialPostGenerator from '../components/content-studio/SocialPostGenerator'
 
-type ContentStudioTab = 'newsletter' | 'social-posts' | 'listings' | 'market-update'
+type ContentStudioTab =
+  | 'newsletter'
+  | 'social-posts'
+  | 'listings'
+  | 'market-update'
+  | 'podcast'
 
 const CONTENT_STUDIO_TABS: { id: ContentStudioTab; label: string }[] = [
   { id: 'newsletter', label: 'Newsletter' },
   { id: 'social-posts', label: 'Social Posts' },
   { id: 'listings', label: 'Listings' },
   { id: 'market-update', label: 'Market Update' },
+  { id: 'podcast', label: 'Podcast' },
 ]
 
 export default function ContentStudio() {
@@ -53,6 +60,7 @@ export default function ContentStudio() {
         {activeTab === 'social-posts' && <SocialPostGenerator />}
         {activeTab === 'listings' && <ListingDescriptionGenerator />}
         {activeTab === 'market-update' && <MarketBlurbGenerator />}
+        {activeTab === 'podcast' && <PodcastGenerator />}
       </section>
     </div>
   )

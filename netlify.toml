@@ -93,6 +93,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-podcast-outline"
+  to = "/.netlify/functions/generate-podcast-outline"
+  status = 200
+
+[[redirects]]
   from = "/api/extract-pdf-text"
   to = "/.netlify/functions/extract-pdf-text"
   status = 200
