@@ -68,6 +68,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/newsletter-recipient-counts"
+  to = "/.netlify/functions/newsletter-recipient-counts"
+  status = 200
+
+[[redirects]]
+  from = "/api/send-newsletter"
+  to = "/.netlify/functions/send-newsletter"
+  status = 200
+
+[[redirects]]
   from = "/api/generate-social-post"
   to = "/.netlify/functions/generate-social-post"
   status = 200
