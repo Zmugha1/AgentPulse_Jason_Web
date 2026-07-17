@@ -1,9 +1,30 @@
 import type { Handler, HandlerEvent } from '@netlify/functions'
-import PDFParser from 'pdf2json'
+import Anthropic from '@anthropic-ai/sdk'
 import { OAuthAuthError, requireAuthenticatedUser } from './google-oauth-shared'
 
 const LOG_MODULE = 'extract-pdf-text'
 const MAX_PDF_BYTES = 5 * 1024 * 1024
+const EXTRACT_MODEL = 'claude-sonnet-4-6'
+const MAX_OUTPUT_TOKENS = 1000
+
+const EXTRACT_PROMPT = `Extract all the key market statistics from this MLS market report. Return only the raw data as clean text, formatted like this example:
+
+Area: Lake Country North
+Report Period: June 2026
+
+New Listings: 224 (+28.0% vs last year)
+Closed Sales: 137 (+4.6%)
+Median Sales Price: $620,000 (+0.7%)
+Percent of List Price Received: 100.1%
+Days on Market: [value]
+Inventory: [value]
+
+Year to Date:
+New Listings: [value] ([change])
+Closed Sales: [value] ([change])
+Median Sales Price: [value] ([change])
+
+Include all statistics present in the report. Use plain text only. No headers, no markdown, no commentary. Just the numbers and their year-over-year changes.`
 
 function safeLog(
   event: string,
@@ -93,44 +114,46 @@ function extractPdfField(body: Buffer, contentType: string): Buffer | null {
   return null
 }
 
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const parser = new PDFParser(null, 1)
-    parser.on('pdfParser_dataReady', (data) => {
-      try {
-        const text = (data.Pages ?? [])
-          .flatMap((page: { Texts?: Array<{ R?: Array<{ T?: string }> }> }) =>
-            (page.Texts ?? []).map((t) =>
-              decodeURIComponent(t.R?.[0]?.T ?? ''),
-            ),
-          )
-          .join(' ')
-          .trim()
-        resolve(text)
-      } catch (err) {
-        reject(err)
-      }
-    })
-    parser.on('pdfParser_dataError', (err: { parserError?: Error } | Error) => {
-      const raw =
-        err && typeof err === 'object' && 'parserError' in err
-          ? (err as { parserError?: unknown }).parserError ?? err
-          : err
-      safeLog('pdf2json_error', {
-        message: String(raw).slice(0, 300),
-      })
-      reject(
-        new Error(
-          String(
-            err && typeof err === 'object' && 'parserError' in err
-              ? (err as { parserError?: unknown }).parserError ?? 'PDF parse error'
-              : 'PDF parse error',
-          ),
-        ),
-      )
-    })
-    parser.parseBuffer(buffer)
+async function extractTextViaAnthropic(pdfBuffer: Buffer): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY is not configured')
+  }
+
+  const client = new Anthropic({ apiKey })
+  const pdfBase64 = pdfBuffer.toString('base64')
+
+  const response = await client.messages.create({
+    model: EXTRACT_MODEL,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: {
+              type: 'base64',
+              media_type: 'application/pdf',
+              data: pdfBase64,
+            },
+          },
+          {
+            type: 'text',
+            text: EXTRACT_PROMPT,
+          },
+        ],
+      },
+    ],
   })
+
+  const text = response.content
+    .filter((block) => block.type === 'text')
+    .map((block) => (block.type === 'text' ? block.text : ''))
+    .join('\n')
+    .trim()
+
+  return text
 }
 
 export const handler: Handler = async (event) => {
@@ -145,7 +168,7 @@ export const handler: Handler = async (event) => {
     if (!/multipart\/form-data/i.test(contentType)) {
       return json(400, {
         code: 'invalid_request',
-        message: 'expected multipart/form-data with field pdf',
+        message: 'Expected multipart/form-data',
       })
     }
 
@@ -172,27 +195,26 @@ export const handler: Handler = async (event) => {
       })
     }
 
-    // Basic PDF magic bytes check (%PDF)
     const magic = pdfBuffer.slice(0, 4).toString('latin1')
     if (magic !== '%PDF') {
       return json(400, {
         code: 'invalid_request',
-        message: 'file does not appear to be a PDF',
+        message: 'File does not appear to be a PDF',
       })
     }
 
-    safeLog('extract_started', { bytes: pdfBuffer.length })
+    safeLog('extraction_started', { bytes: pdfBuffer.length })
 
     let text: string
     try {
-      text = await extractTextFromPdf(pdfBuffer)
+      text = await extractTextViaAnthropic(pdfBuffer)
     } catch (err) {
-      safeLog('pdf_parse_error', {
-        message: err instanceof Error ? err.message.slice(0, 300) : 'unknown error',
+      safeLog('extraction_failed', {
+        message: err instanceof Error ? err.message.slice(0, 200) : 'unknown',
       })
       return json(500, {
         code: 'internal_error',
-        message: 'Failed to extract text from PDF',
+        message: 'Failed to extract PDF content',
       })
     }
 
@@ -203,7 +225,7 @@ export const handler: Handler = async (event) => {
       })
     }
 
-    safeLog('extract_completed', { text_length: text.length })
+    safeLog('extraction_complete', { text_length: text.length })
     return json(200, { text })
   } catch (err) {
     if (err instanceof OAuthAuthError) {
