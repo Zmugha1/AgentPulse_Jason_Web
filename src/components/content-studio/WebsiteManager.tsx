@@ -58,6 +58,44 @@ function statusBadgeLabel(status: ListingStatus): string {
   return 'ACTIVE'
 }
 
+function draftFromListing(listing: WebsiteListing): ListingDraft {
+  return {
+    headline: typeof listing.headline === 'string' ? listing.headline : '',
+    subheadline:
+      typeof listing.subheadline === 'string' ? listing.subheadline : '',
+    status: normalizeStatus(listing.status),
+    cta: typeof listing.cta === 'string' ? listing.cta : '',
+  }
+}
+
+function resolveDraft(
+  listing: WebsiteListing,
+  drafts: Record<string, ListingDraft>,
+): ListingDraft {
+  const existing = drafts[listing.id]
+  if (!existing) return draftFromListing(listing)
+
+  const listingDraft = draftFromListing(listing)
+  const draftTextEmpty =
+    !existing.headline.trim() &&
+    !existing.subheadline.trim() &&
+    !existing.cta.trim()
+  const listingHasText =
+    Boolean(listingDraft.headline.trim()) ||
+    Boolean(listingDraft.subheadline.trim()) ||
+    Boolean(listingDraft.cta.trim())
+
+  // Recover when drafts were stored empty despite populated listing data.
+  if (draftTextEmpty && listingHasText) {
+    return {
+      ...listingDraft,
+      status: existing.status || listingDraft.status,
+    }
+  }
+
+  return existing
+}
+
 function ListingSkeleton() {
   return (
     <div className="space-y-4">
@@ -127,12 +165,7 @@ export default function WebsiteManager() {
       const nextDrafts: Record<string, ListingDraft> = {}
       const nextSaveStates: Record<string, ListingSaveState> = {}
       for (const listing of rows) {
-        nextDrafts[listing.id] = {
-          headline: listing.headline ?? '',
-          subheadline: listing.subheadline ?? '',
-          status: normalizeStatus(listing.status),
-          cta: listing.cta ?? '',
-        }
+        nextDrafts[listing.id] = draftFromListing(listing)
         nextSaveStates[listing.id] = {
           saving: false,
           success: null,
@@ -159,7 +192,10 @@ export default function WebsiteManager() {
     value: string,
   ) {
     setDrafts((prev) => {
-      const current = prev[listingId]
+      const listing = listings.find((row) => row.id === listingId)
+      const current = listing
+        ? resolveDraft(listing, prev)
+        : prev[listingId]
       if (!current) return prev
       return {
         ...prev,
@@ -181,7 +217,10 @@ export default function WebsiteManager() {
   }
 
   async function saveListing(listingId: string) {
-    const draft = drafts[listingId]
+    const listing = listings.find((row) => row.id === listingId)
+    const draft = listing
+      ? resolveDraft(listing, drafts)
+      : drafts[listingId]
     if (!draft) return
 
     setSaveStates((prev) => ({
@@ -239,9 +278,14 @@ export default function WebsiteManager() {
       }
 
       if (payload.listing) {
+        const updated = payload.listing
         setListings((prev) =>
-          prev.map((row) => (row.id === listingId ? payload.listing! : row)),
+          prev.map((row) => (row.id === listingId ? updated : row)),
         )
+        setDrafts((prev) => ({
+          ...prev,
+          [listingId]: draftFromListing(updated),
+        }))
       }
 
       setSaveStates((prev) => ({
@@ -297,9 +341,8 @@ export default function WebsiteManager() {
 
       {!loading && !loadError
         ? listings.map((listing) => {
-            const draft = drafts[listing.id]
+            const draft = resolveDraft(listing, drafts)
             const saveState = saveStates[listing.id]
-            if (!draft) return null
             const status = draft.status
 
             return (
