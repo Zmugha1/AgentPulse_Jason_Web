@@ -5,6 +5,7 @@ import MarketBlurbGenerator from '../components/content-studio/MarketBlurbGenera
 import NewsletterGenerator from '../components/content-studio/NewsletterGenerator'
 import PodcastGenerator from '../components/content-studio/PodcastGenerator'
 import SocialPostGenerator from '../components/content-studio/SocialPostGenerator'
+import WebsiteManager from '../components/content-studio/WebsiteManager'
 
 type ContentStudioTab =
   | 'newsletter'
@@ -13,6 +14,7 @@ type ContentStudioTab =
   | 'market-update'
   | 'podcast'
   | 'blog'
+  | 'website'
 
 const CONTENT_STUDIO_TABS: { id: ContentStudioTab; label: string }[] = [
   { id: 'newsletter', label: 'Newsletter' },
@@ -21,6 +23,7 @@ const CONTENT_STUDIO_TABS: { id: ContentStudioTab; label: string }[] = [
   { id: 'market-update', label: 'Market Update' },
   { id: 'podcast', label: 'Podcast' },
   { id: 'blog', label: 'Blog' },
+  { id: 'website', label: 'Website' },
 ]
 
 export default function ContentStudio() {
@@ -65,6 +68,7 @@ export default function ContentStudio() {
         {activeTab === 'market-update' && <MarketBlurbGenerator />}
         {activeTab === 'podcast' && <PodcastGenerator />}
         {activeTab === 'blog' && <BlogGenerator />}
+        {activeTab === 'website' && <WebsiteManager />}
       </section>
     </div>
   )
