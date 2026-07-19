@@ -98,6 +98,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-blog-post"
+  to = "/.netlify/functions/generate-blog-post"
+  status = 200
+
+[[redirects]]
+  from = "/api/publish-blog-post"
+  to = "/.netlify/functions/publish-blog-post"
+  status = 200
+
+[[redirects]]
   from = "/api/extract-pdf-text"
   to = "/.netlify/functions/extract-pdf-text"
   status = 200
