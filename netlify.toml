@@ -118,6 +118,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/add-listing"
+  to = "/.netlify/functions/add-listing"
+  status = 200
+
+[[redirects]]
   from = "/api/extract-pdf-text"
   to = "/.netlify/functions/extract-pdf-text"
   status = 200

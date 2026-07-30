@@ -38,6 +38,32 @@ const inputClass =
   'font-body w-full mt-1 rounded border border-mint bg-white px-3 py-2 text-navy focus:outline-none focus:ring-2 focus:ring-teal'
 const primaryButtonClass =
   'font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy transition-colors w-full sm:w-auto'
+const secondaryButtonClass =
+  'font-body text-sm text-slate border border-mint rounded px-4 py-2 min-h-[44px] hover:bg-mint/30 transition-colors'
+const outlineTealButtonClass =
+  'font-body text-sm text-teal bg-transparent border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-teal/10 transition-colors w-full sm:w-auto'
+
+type AddListingFormState = {
+  id: string
+  address: string
+  price: string
+  status: ListingStatus
+  headline: string
+  subheadline: string
+  cta: string
+  image: string
+}
+
+const EMPTY_ADD_FORM: AddListingFormState = {
+  id: '',
+  address: '',
+  price: '',
+  status: 'active',
+  headline: '',
+  subheadline: '',
+  cta: '',
+  image: '',
+}
 
 function normalizeStatus(value: string | undefined): ListingStatus {
   if (value === 'under_contract' || value === 'sold' || value === 'active') {
@@ -123,6 +149,11 @@ export default function WebsiteManager() {
   )
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addForm, setAddForm] = useState<AddListingFormState>(EMPTY_ADD_FORM)
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [addSuccess, setAddSuccess] = useState<string | null>(null)
 
   async function getAccessToken(): Promise<string | null> {
     const { data: sessionData, error: sessionError } =
@@ -308,6 +339,114 @@ export default function WebsiteManager() {
     }
   }
 
+  function updateAddForm<K extends keyof AddListingFormState>(
+    field: K,
+    value: AddListingFormState[K],
+  ) {
+    setAddForm((prev) => ({ ...prev, [field]: value }))
+    setAddError(null)
+    setAddSuccess(null)
+  }
+
+  function dismissAddForm() {
+    setShowAddForm(false)
+    setAddForm(EMPTY_ADD_FORM)
+    setAdding(false)
+    setAddError(null)
+  }
+
+  async function submitAddListing() {
+    const id = addForm.id.trim()
+    const address = addForm.address.trim()
+    const price = addForm.price.trim()
+    const headline = addForm.headline.trim()
+    const cta = addForm.cta.trim()
+    const subheadline = addForm.subheadline.trim()
+    const image = addForm.image.trim()
+
+    if (!id || !address || !price || !headline || !cta) {
+      setAddError('Listing ID, address, price, headline, and CTA are required')
+      return
+    }
+
+    setAdding(true)
+    setAddError(null)
+    setAddSuccess(null)
+
+    const token = await getAccessToken()
+    if (!token) {
+      setAddError('Please sign in again')
+      setAdding(false)
+      return
+    }
+
+    try {
+      const body: Record<string, string> = {
+        id,
+        address,
+        price,
+        status: addForm.status,
+        headline,
+        cta,
+      }
+      if (subheadline) body.subheadline = subheadline
+      if (image) body.image = image
+
+      const res = await fetch('/api/add-listing', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+      const payload = (await res.json()) as {
+        success?: boolean
+        listing?: WebsiteListing
+        message?: string
+      }
+
+      if (!res.ok) {
+        setAddError(payload.message ?? 'Could not add listing')
+        setAdding(false)
+        return
+      }
+
+      const created = payload.listing ?? {
+        id,
+        address,
+        price,
+        status: addForm.status,
+        headline,
+        subheadline,
+        cta,
+        image,
+      }
+
+      setListings((prev) => [created, ...prev.filter((row) => row.id !== created.id)])
+      setDrafts((prev) => ({
+        ...prev,
+        [created.id]: draftFromListing(created),
+      }))
+      setSaveStates((prev) => ({
+        ...prev,
+        [created.id]: {
+          saving: false,
+          success: null,
+          error: null,
+        },
+      }))
+      setAddSuccess('Added. Live in 2 minutes.')
+      setShowAddForm(false)
+      setAddForm(EMPTY_ADD_FORM)
+      setAdding(false)
+    } catch {
+      setAddError('Could not add listing')
+      setAdding(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header>
@@ -317,6 +456,197 @@ export default function WebsiteManager() {
           within 2 minutes.
         </p>
       </header>
+
+      {!loading && !loadError ? (
+        <div className="space-y-3">
+          {!showAddForm ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm(true)
+                setAddError(null)
+                setAddSuccess(null)
+              }}
+              className={outlineTealButtonClass}
+            >
+              + Add New Listing
+            </button>
+          ) : null}
+
+          {addSuccess ? (
+            <p className="font-body text-sm text-teal" role="status">
+              {addSuccess}
+            </p>
+          ) : null}
+
+          {showAddForm ? (
+            <form
+              className="rounded border border-mint bg-white p-4 md:p-5 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void submitAddListing()
+              }}
+            >
+              <h4 className="font-heading text-lg text-navy">Add New Listing</h4>
+
+              <div>
+                <label htmlFor="add-listing-id" className={labelClass}>
+                  Listing ID (URL-safe, no spaces)
+                </label>
+                <input
+                  id="add-listing-id"
+                  type="text"
+                  required
+                  value={addForm.id}
+                  onChange={(e) => updateAddForm('id', e.target.value)}
+                  placeholder="e.g. hartland-main-street"
+                  className={inputClass}
+                />
+                <p className="font-body text-xs text-slate mt-1">
+                  Used internally, cannot be changed later
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-address" className={labelClass}>
+                  Address
+                </label>
+                <input
+                  id="add-listing-address"
+                  type="text"
+                  required
+                  value={addForm.address}
+                  onChange={(e) => updateAddForm('address', e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-price" className={labelClass}>
+                  Price
+                </label>
+                <input
+                  id="add-listing-price"
+                  type="text"
+                  required
+                  value={addForm.price}
+                  onChange={(e) => updateAddForm('price', e.target.value)}
+                  placeholder="e.g. $450,000"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-status" className={labelClass}>
+                  Status
+                </label>
+                <select
+                  id="add-listing-status"
+                  value={addForm.status}
+                  onChange={(e) =>
+                    updateAddForm('status', normalizeStatus(e.target.value))
+                  }
+                  className={inputClass}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-headline" className={labelClass}>
+                  Headline
+                </label>
+                <input
+                  id="add-listing-headline"
+                  type="text"
+                  required
+                  value={addForm.headline}
+                  onChange={(e) => updateAddForm('headline', e.target.value)}
+                  placeholder="e.g. NOW AVAILABLE"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-subheadline" className={labelClass}>
+                  Subheadline
+                </label>
+                <input
+                  id="add-listing-subheadline"
+                  type="text"
+                  value={addForm.subheadline}
+                  onChange={(e) => updateAddForm('subheadline', e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-cta" className={labelClass}>
+                  CTA
+                </label>
+                <input
+                  id="add-listing-cta"
+                  type="text"
+                  required
+                  value={addForm.cta}
+                  onChange={(e) => updateAddForm('cta', e.target.value)}
+                  placeholder="e.g. Schedule a showing today"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="add-listing-image" className={labelClass}>
+                  Photo URL
+                </label>
+                <input
+                  id="add-listing-image"
+                  type="text"
+                  value={addForm.image}
+                  onChange={(e) => updateAddForm('image', e.target.value)}
+                  placeholder="Leave blank if no photo yet"
+                  className={inputClass}
+                />
+              </div>
+
+              {addError ? (
+                <p className="font-body text-sm text-coral" role="alert">
+                  {addError}
+                </p>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={dismissAddForm}
+                  disabled={adding}
+                  className={secondaryButtonClass}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adding}
+                  className={primaryButtonClass}
+                >
+                  {adding ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                      Adding...
+                    </span>
+                  ) : (
+                    'Add Listing'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : null}
+        </div>
+      ) : null}
 
       {loading ? <ListingSkeleton /> : null}
 
