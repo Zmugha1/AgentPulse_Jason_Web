@@ -22,6 +22,8 @@ export type WebsiteListing = {
   headline?: string
   subheadline?: string
   cta?: string
+  badge?: string
+  image?: string
   [key: string]: unknown
 }
 
@@ -37,6 +39,26 @@ function json(statusCode: number, body: Record<string, unknown>) {
     statusCode,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  }
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/** Preserve every field from listings.js and guarantee UI keys are strings. */
+function toResponseListing(row: Record<string, unknown>): WebsiteListing {
+  return {
+    ...row,
+    id: asString(row.id).trim(),
+    address: asString(row.address),
+    price: asString(row.price),
+    status: asString(row.status),
+    headline: asString(row.headline),
+    subheadline: asString(row.subheadline),
+    cta: asString(row.cta),
+    badge: asString(row.badge),
+    image: asString(row.image),
   }
 }
 
@@ -156,7 +178,7 @@ function parseListings(source: string): WebsiteListing[] {
     if (!item || typeof item !== 'object') continue
     const row = item as Record<string, unknown>
     if (typeof row.id !== 'string' || !row.id.trim()) continue
-    listings.push(row as WebsiteListing)
+    listings.push(toResponseListing(row))
   }
   return listings
 }
