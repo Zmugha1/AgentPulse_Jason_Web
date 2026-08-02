@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Check, Loader2 } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -11,6 +12,7 @@ import {
 import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
 import SourcePerformanceTable from '../components/SourcePerformanceTable'
 import { getStageLabel } from '../lib/pipelineStages'
+import { supabase } from '../lib/supabase'
 import {
   fetchWebsiteMetrics,
   getPoolHeadlineMetrics,
@@ -24,6 +26,34 @@ import {
   type SourcePerformanceRow,
   type TrafficSourceCategoryRow,
 } from '../services/marketIntelService'
+
+type MarketReportStats = {
+  area?: string | null
+  report_period?: string | null
+  new_listings?: number | null
+  new_listings_change_pct?: number | null
+  closed_sales?: number | null
+  closed_sales_change_pct?: number | null
+  median_sales_price?: number | null
+  median_sales_price_change_pct?: number | null
+  pct_of_list_price?: number | null
+  days_on_market?: number | null
+  days_on_market_change_pct?: number | null
+  inventory?: number | null
+  inventory_change_pct?: number | null
+  pending_sales?: number | null
+  pending_sales_change_pct?: number | null
+}
+
+type ActiveMarketReport = {
+  id: string
+  area: string
+  report_period: string
+  extracted_stats: MarketReportStats
+  raw_text: string
+  uploaded_at: string
+  is_active: boolean
+}
 
 const CENTRAL_TZ = 'America/Chicago'
 
@@ -139,6 +169,330 @@ function IntelCard({
         <p className="font-body text-sm text-slate mt-1">{subtitle}</p>
       ) : null}
       <div className="mt-4">{children}</div>
+    </section>
+  )
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+function formatSignedPct(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  const sign = rounded > 0 ? '+' : ''
+  return `${sign}${rounded}%`
+}
+
+function formatUploadedAt(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: CENTRAL_TZ,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function buildReportStatLines(stats: MarketReportStats): string[] {
+  const lines: string[] = []
+
+  if (
+    typeof stats.median_sales_price === 'number' &&
+    Number.isFinite(stats.median_sales_price)
+  ) {
+    const change =
+      typeof stats.median_sales_price_change_pct === 'number' &&
+      Number.isFinite(stats.median_sales_price_change_pct)
+        ? ` (${formatSignedPct(stats.median_sales_price_change_pct)})`
+        : ''
+    lines.push(`Median price ${formatCurrency(stats.median_sales_price)}${change}`)
+  }
+
+  if (
+    typeof stats.closed_sales_change_pct === 'number' &&
+    Number.isFinite(stats.closed_sales_change_pct)
+  ) {
+    const pct = Math.abs(Math.round(stats.closed_sales_change_pct * 10) / 10)
+    const direction =
+      stats.closed_sales_change_pct >= 0 ? 'up' : 'down'
+    lines.push(`Closed sales ${direction} ${pct}%`)
+  }
+
+  if (
+    typeof stats.days_on_market === 'number' &&
+    Number.isFinite(stats.days_on_market)
+  ) {
+    const days = Math.round(stats.days_on_market)
+    lines.push(`Homes selling in ${days} days`)
+  }
+
+  if (
+    typeof stats.pct_of_list_price === 'number' &&
+    Number.isFinite(stats.pct_of_list_price)
+  ) {
+    const pct = Math.round(stats.pct_of_list_price * 10) / 10
+    lines.push(`Sellers getting ${pct}% of list price`)
+  }
+
+  return lines.slice(0, 4)
+}
+
+function MarketReportSection() {
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [report, setReport] = useState<ActiveMarketReport | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showUploader, setShowUploader] = useState(false)
+  const [pdfInputKey, setPdfInputKey] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const loadActiveReport = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (sessionError || !token) {
+      setReport(null)
+      setError('Please sign in again')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/get-active-market-report', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      const payload = (await res.json()) as {
+        report?: ActiveMarketReport | null
+        message?: string
+      }
+
+      if (!res.ok) {
+        setReport(null)
+        setError(payload.message ?? 'Could not load market report')
+        return
+      }
+
+      setReport(payload.report ?? null)
+      setShowUploader(!(payload.report ?? null))
+    } catch {
+      setReport(null)
+      setError('Could not load market report')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadActiveReport()
+  }, [loadActiveReport])
+
+  async function handlePdfSelect(file: File | null) {
+    if (!file) return
+
+    setError(null)
+
+    if (file.type && file.type !== 'application/pdf') {
+      setError('Please upload a PDF file')
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('PDF must be 5MB or smaller')
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+
+    setUploading(true)
+
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (sessionError || !token) {
+      setError('Please sign in again')
+      setUploading(false)
+      setPdfInputKey((k) => k + 1)
+      return
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('pdf', file)
+
+      const res = await fetch('/api/extract-pdf-text', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      const payload = (await res.json()) as {
+        text?: string
+        stats?: MarketReportStats
+        report_id?: string
+        message?: string
+      }
+
+      if (!res.ok) {
+        setError(payload.message ?? 'Could not extract text from PDF')
+        setPdfInputKey((k) => k + 1)
+        return
+      }
+
+      if (!payload.report_id || !payload.stats) {
+        setError('Report was extracted but could not be stored')
+        setPdfInputKey((k) => k + 1)
+        return
+      }
+
+      const stats = payload.stats
+      setReport({
+        id: payload.report_id,
+        area: stats.area?.trim() || '',
+        report_period: stats.report_period?.trim() || '',
+        extracted_stats: stats,
+        raw_text: payload.text?.trim() ?? '',
+        uploaded_at: new Date().toISOString(),
+        is_active: true,
+      })
+      setShowUploader(false)
+      setPdfInputKey((k) => k + 1)
+    } catch {
+      setError('Could not extract text from PDF')
+      setPdfInputKey((k) => k + 1)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const areaLabel = report?.area?.trim() || report?.extracted_stats.area?.trim() || ''
+  const periodLabel =
+    report?.report_period?.trim() ||
+    report?.extracted_stats.report_period?.trim() ||
+    ''
+  const loadedLabel = [areaLabel, periodLabel].filter(Boolean).join(' ')
+  const statLines = report
+    ? buildReportStatLines(report.extracted_stats ?? {})
+    : []
+
+  return (
+    <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
+      <h2 className="font-heading text-xl text-navy">Market Intelligence</h2>
+      <p className="font-body text-sm text-slate mt-1">
+        Upload your monthly MLS report. AgentPulse extracts the data and uses it
+        to power insights, lead actions, email drafts, and all content
+        generation.
+      </p>
+
+      <div className="mt-4">
+        {loading ? (
+          <div className="flex items-center gap-2 text-slate">
+            <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
+            <p className="font-body text-sm">Checking for an active report...</p>
+          </div>
+        ) : null}
+
+        {!loading && report && !showUploader ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <Check
+                className="w-5 h-5 text-teal shrink-0 mt-0.5"
+                aria-hidden
+              />
+              <div>
+                <p className="font-body text-sm text-navy">
+                  Report loaded
+                  {loadedLabel ? `: ${loadedLabel}` : ''}
+                </p>
+                {statLines.length > 0 ? (
+                  <p className="font-body text-sm text-slate mt-2 leading-relaxed">
+                    {statLines.join(' · ')}
+                  </p>
+                ) : null}
+                <p className="font-body text-xs text-slate mt-2">
+                  Last updated: {formatUploadedAt(report.uploaded_at)}
+                </p>
+                <p className="font-body text-xs text-slate/80 mt-1">
+                  This data is used across AgentPulse for insights and content
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUploader(true)
+                    setError(null)
+                  }}
+                  className="font-body text-xs text-slate underline mt-3 hover:text-navy"
+                >
+                  Replace report
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {!loading && (showUploader || !report) ? (
+          <div className="space-y-3">
+            {uploading ? (
+              <div className="flex items-center gap-2 text-slate">
+                <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
+                <p className="font-body text-sm">Reading report...</p>
+              </div>
+            ) : (
+              <>
+                <input
+                  key={pdfInputKey}
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null
+                    void handlePdfSelect(file)
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="font-body text-sm text-white bg-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-navy hover:border-navy transition-colors"
+                >
+                  Upload MLS Report PDF
+                </button>
+                {report ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUploader(false)
+                      setError(null)
+                    }}
+                    className="font-body text-xs text-slate underline block"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {error ? (
+          <p className="font-body text-sm text-coral mt-3" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -644,37 +998,34 @@ export default function MarketIntel() {
     return `You currently have ${formatCount(pricedStats.total)} ${noun}${allNew}.`
   }, [pricedStats])
 
-  if (loading) {
-    return (
-      <div className="bg-white border border-mint rounded-lg p-8 text-center">
-        <p className="font-body text-navy">Loading market intel...</p>
-      </div>
-    )
-  }
-
-  if (
-    error ||
+  const intelUnavailable =
+    Boolean(error) ||
     !totals ||
     !headline ||
     !sourcePerformance ||
     !stages ||
     !recency ||
     !pricedStats
-  ) {
-    return (
-      <div className="bg-white border border-mint rounded-lg p-6">
-        <h2 className="font-heading text-xl text-navy">Market Intel unavailable</h2>
-        <p className="font-body text-coral text-sm mt-2">
-          {error ?? 'Data could not be loaded.'}
-        </p>
-      </div>
-    )
-  }
 
-  const poolTotal = totals.total
+  const poolTotal = totals?.total ?? 0
 
   return (
     <div className="space-y-6">
+      <MarketReportSection />
+
+      {loading ? (
+        <div className="bg-white border border-mint rounded-lg p-8 text-center">
+          <p className="font-body text-navy">Loading market intel...</p>
+        </div>
+      ) : intelUnavailable ? (
+        <div className="bg-white border border-mint rounded-lg p-6">
+          <h2 className="font-heading text-xl text-navy">Market Intel unavailable</h2>
+          <p className="font-body text-coral text-sm mt-2">
+            {error ?? 'Data could not be loaded.'}
+          </p>
+        </div>
+      ) : (
+        <>
       <IntelCard title="This Week" subtitle={getThisWeekSubtitle()}>
         <WeeklyActivitySummary />
       </IntelCard>
@@ -795,6 +1146,8 @@ export default function MarketIntel() {
         rate; the curation rule removed 1,285 leads that were both old and never
         advanced.
       </p>
+        </>
+      )}
     </div>
   )
 }
