@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { openMarketIntel } from '../../lib/marketPulseFilter'
 import { supabase } from '../../lib/supabase'
 
 const DURATION_OPTIONS = [
@@ -9,6 +10,12 @@ const DURATION_OPTIONS = [
 ] as const
 
 type GeneratorPhase = 'idle' | 'loading' | 'success' | 'error'
+
+type ActiveReportSummary = {
+  id: string
+  area: string
+  use_in_prompts?: boolean
+}
 
 const labelClass = 'font-label block text-xs uppercase text-slate mb-1'
 const inputClass =
@@ -23,12 +30,59 @@ export default function PodcastGenerator() {
   const [topic, setTopic] = useState('')
   const [durationMinutes, setDurationMinutes] = useState(20)
   const [marketContext, setMarketContext] = useState('')
+  const [promptAreas, setPromptAreas] = useState<string[] | null>(null)
   const [episodeTitle, setEpisodeTitle] = useState('')
   const [openingHook, setOpeningHook] = useState('')
   const [talkingPoints, setTalkingPoints] = useState('')
   const [closingCta, setClosingCta] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadReports() {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (sessionError || !token) {
+        if (!cancelled) setPromptAreas([])
+        return
+      }
+
+      try {
+        const res = await fetch('/api/get-active-market-report', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const payload = (await res.json()) as {
+          reports?: ActiveReportSummary[]
+        }
+        if (cancelled) return
+        if (!res.ok || !Array.isArray(payload.reports)) {
+          setPromptAreas([])
+          return
+        }
+
+        const areas = payload.reports
+          .filter((row) => row.use_in_prompts !== false)
+          .map((row) => row.area?.trim())
+          .filter((area): area is string => Boolean(area))
+        setPromptAreas(areas)
+      } catch {
+        if (!cancelled) setPromptAreas([])
+      }
+    }
+
+    void loadReports()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const hasStoredReports = (promptAreas?.length ?? 0) > 0
 
   async function runGenerate() {
     const trimmedTopic = topic.trim()
@@ -56,9 +110,11 @@ export default function PodcastGenerator() {
         topic: trimmedTopic,
         duration_minutes: durationMinutes,
       }
-      const trimmedContext = marketContext.trim()
-      if (trimmedContext) {
-        payloadBody.market_context = trimmedContext
+      if (!hasStoredReports) {
+        const trimmedContext = marketContext.trim()
+        if (trimmedContext) {
+          payloadBody.market_context = trimmedContext
+        }
       }
 
       const res = await fetch('/api/generate-podcast-outline', {
@@ -322,19 +378,35 @@ export default function PodcastGenerator() {
         </select>
       </div>
 
-      <div>
-        <label htmlFor="podcast-market-context" className={labelClass}>
-          Market context (optional)
-        </label>
-        <textarea
-          id="podcast-market-context"
-          value={marketContext}
-          onChange={(e) => setMarketContext(e.target.value)}
-          rows={4}
-          placeholder="Paste any market stats or news you want to reference in the episode"
-          className={inputClass}
-        />
-      </div>
+      {promptAreas === null ? null : hasStoredReports ? (
+        <div className="bg-mint/40 border border-teal/40 rounded-lg px-4 py-3 space-y-1">
+          <p className="font-body text-sm text-navy">
+            Using your uploaded market data: {promptAreas!.join(', ')}. Real
+            numbers will be included in your talking points automatically.
+          </p>
+          <button
+            type="button"
+            onClick={() => openMarketIntel()}
+            className="font-body text-sm text-teal underline hover:text-navy"
+          >
+            Update reports on Market Intel
+          </button>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="podcast-market-context" className={labelClass}>
+            Market context (optional)
+          </label>
+          <textarea
+            id="podcast-market-context"
+            value={marketContext}
+            onChange={(e) => setMarketContext(e.target.value)}
+            rows={4}
+            placeholder="Paste any market stats or news you want to reference in the episode"
+            className={inputClass}
+          />
+        </div>
+      )}
 
       <button type="submit" className={`${primaryButtonClass} w-full`}>
         Generate

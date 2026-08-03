@@ -285,9 +285,8 @@ export const handler: Handler = async (event) => {
       minStatsInstruction:
         'Reference real numbers from these statistics in the talking points.',
     })
-    const combinedMarketContext = [storedMarketContext, marketContext]
-      .filter(Boolean)
-      .join('\n\n') || null
+    // Prefer uploaded MLS reports; manual paste is fallback only when none exist.
+    const combinedMarketContext = storedMarketContext ?? marketContext
 
     const profileRow = profile as Record<string, unknown> | null
     const voiceProfile = formatStzProfile(profileRow)
@@ -303,6 +302,7 @@ export const handler: Handler = async (event) => {
       duration_minutes: durationMinutes,
       has_market_context: combinedMarketContext !== null,
       market_report_count: marketReports.length,
+      used_stored_market_reports: Boolean(storedMarketContext),
     })
 
     let episode_title: string
