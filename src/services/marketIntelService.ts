@@ -210,6 +210,19 @@ export type SourcePerformanceRow = {
   insight: string
 }
 
+export type SourcePerformanceRange =
+  | 'all'
+  | 'this_quarter'
+  | 'last_quarter'
+  | 'this_year'
+  | 'last_12_months'
+
+export type SourcePerformanceBounds = {
+  start: Date | null
+  end: Date | null
+  label: string
+}
+
 const SOURCE_GROUP_ORDER = [
   'Realtor.com',
   'Zillow',
@@ -268,22 +281,139 @@ function isAdvancedPipelineStage(stage: string | null): boolean {
   return !NON_ADVANCED_STAGES.has(value)
 }
 
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function endOfLocalDay(date: Date): Date {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999,
+  )
+}
+
+function quarterIndex(date: Date): number {
+  return Math.floor(date.getMonth() / 3)
+}
+
+function quarterStartDate(year: number, quarter: number): Date {
+  return new Date(year, quarter * 3, 1)
+}
+
+function quarterEndDate(year: number, quarter: number): Date {
+  return endOfLocalDay(new Date(year, quarter * 3 + 3, 0))
+}
+
+function formatMonthDay(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatMonthDayYear(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/**
+ * Resolve inclusive lead-date bounds and a human label for the Period UI.
+ */
+export function resolveSourcePerformanceBounds(
+  range: SourcePerformanceRange,
+  now = new Date(),
+): SourcePerformanceBounds {
+  const today = startOfLocalDay(now)
+  const year = now.getFullYear()
+  const currentQ = quarterIndex(now)
+
+  if (range === 'all') {
+    return { start: null, end: null, label: 'All time' }
+  }
+
+  if (range === 'this_quarter') {
+    const start = quarterStartDate(year, currentQ)
+    return {
+      start,
+      end: endOfLocalDay(today),
+      label: `${formatMonthDay(start)} – ${formatMonthDay(today)}, ${year} (Q${currentQ + 1})`,
+    }
+  }
+
+  if (range === 'last_quarter') {
+    let q = currentQ - 1
+    let y = year
+    if (q < 0) {
+      q = 3
+      y = year - 1
+    }
+    const start = quarterStartDate(y, q)
+    const end = quarterEndDate(y, q)
+    return {
+      start,
+      end,
+      label: `${formatMonthDay(start)} – ${formatMonthDay(end)}, ${y} (Q${q + 1})`,
+    }
+  }
+
+  if (range === 'this_year') {
+    const start = new Date(year, 0, 1)
+    return {
+      start,
+      end: endOfLocalDay(today),
+      label: `${formatMonthDay(start)} – ${formatMonthDay(today)}, ${year} (Year to Date)`,
+    }
+  }
+
+  const start = startOfLocalDay(today)
+  start.setDate(start.getDate() - 365)
+  return {
+    start,
+    end: endOfLocalDay(today),
+    label: `${formatMonthDayYear(start)} – ${formatMonthDayYear(today)}`,
+  }
+}
+
+function closedFromPhrase(
+  range: SourcePerformanceRange,
+  sourceLabel: string,
+): string {
+  if (range === 'all') return `from ${sourceLabel} (all time)`
+  if (range === 'this_quarter') return `from ${sourceLabel} this quarter`
+  if (range === 'last_quarter') return `from ${sourceLabel} last quarter`
+  if (range === 'this_year') return `from ${sourceLabel} this year`
+  return `from ${sourceLabel} in the last 12 months`
+}
+
 function buildSourceInsight(
   group: string,
   total: number,
   closed: number,
+  range: SourcePerformanceRange,
 ): string {
+  const noun = closed === 1 ? 'deal' : 'deals'
+
   if (group === 'Realtor.com') {
     if (closed === 0) {
-      return 'Paid source. No closed deals yet. Focus on response speed.'
+      const periodBit =
+        range === 'all'
+          ? 'No closed deals yet.'
+          : `No closed deals yet ${closedFromPhrase(range, 'paid source').replace(/^from paid source /, '')}.`
+      return `Paid source. ${periodBit} Focus on response speed.`
     }
-    const noun = closed === 1 ? 'deal' : 'deals'
-    return `${closed} closed ${noun} from paid source. ROI positive.`
+    return `${closed} closed ${noun} ${closedFromPhrase(range, 'paid source')}. ROI positive.`
   }
   if (group === 'Zillow') {
-    if (closed > 0) {
-      const noun = closed === 1 ? 'deal' : 'deals'
-      return `${closed} closed ${noun} from Zillow pool.`
+    if (closed > 0 || range !== 'all') {
+      return `${closed} closed ${noun} ${closedFromPhrase(range, 'Zillow')}.`
     }
     if (total > 500) {
       return 'Large legacy pool. Focus on recency filter to find workable leads.'
@@ -292,7 +422,10 @@ function buildSourceInsight(
   }
   if (group === 'Website') {
     if (total > 0) {
-      return 'High intent source. These leads found you organically.'
+      if (range === 'all') {
+        return 'High intent source. These leads found you organically.'
+      }
+      return `High intent source ${closedFromPhrase(range, 'Website').replace(/^from Website /, '')}. These leads found you organically.`
     }
     return 'Website leads will appear here as they arrive.'
   }
@@ -330,14 +463,27 @@ async function fetchWorkedLeadIds(): Promise<Set<string>> {
 /**
  * Consolidated lead source performance with conversion metrics.
  * Fetches leads and interactions separately, aggregates in TypeScript.
+ * Date filter uses original_lead_date within the selected period.
  */
-export async function getSourcePerformance(): Promise<SourcePerformanceRow[]> {
+export async function getSourcePerformance(
+  range: SourcePerformanceRange = 'this_quarter',
+): Promise<SourcePerformanceRow[]> {
   const client = getSupabaseClient()
+  const bounds = resolveSourcePerformanceBounds(range)
 
-  const { data, error } = await client
+  let query = client
     .from('leads')
     .select('id, source, pipeline_stage')
     .eq('is_archived', false)
+
+  if (bounds.start) {
+    query = query.gte('original_lead_date', bounds.start.toISOString())
+  }
+  if (bounds.end) {
+    query = query.lte('original_lead_date', bounds.end.toISOString())
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error('[marketIntelService] getSourcePerformance:', error.message)
@@ -383,7 +529,7 @@ export async function getSourcePerformance(): Promise<SourcePerformanceRow[]> {
       closed: bucket.closed,
       conversion_rate: percent(bucket.closed, bucket.total),
       border_color: SOURCE_GROUP_BORDERS[group] ?? '#7A8F95',
-      insight: buildSourceInsight(group, bucket.total, bucket.closed),
+      insight: buildSourceInsight(group, bucket.total, bucket.closed, range),
     })
   }
 

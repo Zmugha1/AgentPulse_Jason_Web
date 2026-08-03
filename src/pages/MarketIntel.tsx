@@ -26,8 +26,10 @@ import {
   getSourcePerformance,
   getStageDistribution,
   getTotalCounts,
+  resolveSourcePerformanceBounds,
   type MarketIntelResult,
   type MetricsRange,
+  type SourcePerformanceRange,
   type SourcePerformanceRow,
   type TrafficSourceCategoryRow,
 } from '../services/marketIntelService'
@@ -1352,6 +1354,10 @@ export default function MarketIntel() {
   const [sourcePerformance, setSourcePerformance] = useState<
     SourcePerformanceRow[] | null
   >(null)
+  const [sourceRange, setSourceRange] =
+    useState<SourcePerformanceRange>('this_quarter')
+  const [sourcePerfLoading, setSourcePerfLoading] = useState(false)
+  const [sourcePerfError, setSourcePerfError] = useState<string | null>(null)
   const [stages, setStages] = useState<Awaited<
     ReturnType<typeof getStageDistribution>
   > | null>(null)
@@ -1391,14 +1397,12 @@ export default function MarketIntel() {
         const [
           totalCounts,
           poolHeadline,
-          sourcePerformanceRows,
           stageDistribution,
           recencyBuckets,
           priced,
         ] = await Promise.all([
           getTotalCounts(),
           getPoolHeadlineMetrics(),
-          getSourcePerformance(),
           getStageDistribution(),
           getRecencyBuckets(),
           getPricedLeadStats(),
@@ -1406,7 +1410,6 @@ export default function MarketIntel() {
         if (cancelled) return
         setTotals(totalCounts)
         setHeadline(poolHeadline)
-        setSourcePerformance(sourcePerformanceRows)
         setStages(stageDistribution)
         setRecency(recencyBuckets)
         setPricedStats(priced)
@@ -1427,6 +1430,38 @@ export default function MarketIntel() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSourcePerformance() {
+      setSourcePerfLoading(true)
+      setSourcePerfError(null)
+      try {
+        const rows = await getSourcePerformance(sourceRange)
+        if (!cancelled) setSourcePerformance(rows)
+      } catch (err) {
+        if (!cancelled) {
+          setSourcePerfError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load source performance',
+          )
+        }
+      } finally {
+        if (!cancelled) setSourcePerfLoading(false)
+      }
+    }
+
+    void loadSourcePerformance()
+    return () => {
+      cancelled = true
+    }
+  }, [sourceRange])
+
+  const sourceRangeLabel = useMemo(
+    () => resolveSourcePerformanceBounds(sourceRange).label,
+    [sourceRange],
+  )
   const stageChartData = useMemo(
     () =>
       (stages ?? []).map((row) => ({
@@ -1453,7 +1488,6 @@ export default function MarketIntel() {
     Boolean(error) ||
     !totals ||
     !headline ||
-    !sourcePerformance ||
     !stages ||
     !recency ||
     !pricedStats
@@ -1561,20 +1595,58 @@ export default function MarketIntel() {
         ))}
       </div>
 
-      <IntelCard
-        title="Where your leads come from"
-        subtitle={
-          <>
-            <p>Conversion performance by lead source</p>
-            <p>
-              Conversion rate is closed deals divided by total leads per source.
-              Your real pipeline data only.
+      <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-heading text-xl text-navy">
+              Where your leads come from
+            </h2>
+            <p className="font-body text-sm text-slate mt-1">
+              {sourceRangeLabel}
             </p>
-          </>
-        }
-      >
-        <SourcePerformanceTable rows={sourcePerformance} />
-      </IntelCard>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <label
+              htmlFor="source-performance-period"
+              className="font-label text-[10px] uppercase text-slate tracking-wide"
+            >
+              Period
+            </label>
+            <select
+              id="source-performance-period"
+              value={sourceRange}
+              onChange={(e) =>
+                setSourceRange(e.target.value as SourcePerformanceRange)
+              }
+              className="font-body text-sm text-navy border border-mint rounded px-3 py-2 bg-white min-h-[40px] focus:outline-none focus:ring-2 focus:ring-teal"
+            >
+              <option value="this_quarter">This Quarter</option>
+              <option value="last_quarter">Last Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="last_12_months">Last 12 Months</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+        </div>
+        <div className="font-body text-sm text-slate mt-2 space-y-1">
+          <p>Conversion performance by lead source</p>
+          <p>
+            Conversion rate is closed deals divided by total leads per source
+            in the selected period. Your real pipeline data only.
+          </p>
+        </div>
+        <div className="mt-4">
+          {sourcePerfLoading ? (
+            <p className="font-body text-sm text-slate">Loading...</p>
+          ) : sourcePerfError ? (
+            <p className="font-body text-sm text-coral" role="alert">
+              {sourcePerfError}
+            </p>
+          ) : (
+            <SourcePerformanceTable rows={sourcePerformance ?? []} />
+          )}
+        </div>
+      </section>
 
       <WebsiteActivitySection />
 
