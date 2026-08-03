@@ -54,6 +54,7 @@ type ActiveMarketReport = {
   raw_text: string
   uploaded_at: string
   is_active: boolean
+  use_in_prompts: boolean
 }
 
 const CENTRAL_TZ = 'America/Chicago'
@@ -256,6 +257,9 @@ function MarketReportSection({
   const [error, setError] = useState<string | null>(null)
   const [showUploader, setShowUploader] = useState(false)
   const [replacingArea, setReplacingArea] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [pdfInputKey, setPdfInputKey] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -267,14 +271,20 @@ function MarketReportSection({
     [onActiveReportsChange],
   )
 
+  async function getAccessToken(): Promise<string | null> {
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (sessionError || !token) return null
+    return token
+  }
+
   const loadActiveReports = useCallback(async () => {
     setLoading(true)
     setError(null)
 
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
-    if (sessionError || !token) {
+    const token = await getAccessToken()
+    if (!token) {
       publishReports([])
       setError('Please sign in again')
       setLoading(false)
@@ -299,7 +309,12 @@ function MarketReportSection({
         return
       }
 
-      const next = Array.isArray(payload.reports) ? payload.reports : []
+      const next = (Array.isArray(payload.reports) ? payload.reports : []).map(
+        (row) => ({
+          ...row,
+          use_in_prompts: row.use_in_prompts !== false,
+        }),
+      )
       publishReports(next)
       setShowUploader(next.length === 0)
     } catch {
@@ -332,10 +347,8 @@ function MarketReportSection({
 
     setUploading(true)
 
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
-    if (sessionError || !token) {
+    const token = await getAccessToken()
+    if (!token) {
       setError('Please sign in again')
       setUploading(false)
       setPdfInputKey((k) => k + 1)
@@ -383,6 +396,7 @@ function MarketReportSection({
         raw_text: payload.text?.trim() ?? '',
         uploaded_at: new Date().toISOString(),
         is_active: true,
+        use_in_prompts: true,
       }
 
       const withoutSameArea = reports.filter(
@@ -391,12 +405,121 @@ function MarketReportSection({
       publishReports([nextReport, ...withoutSameArea])
       setShowUploader(false)
       setReplacingArea(null)
+      setConfirmRemoveId(null)
       setPdfInputKey((k) => k + 1)
     } catch {
       setError('Could not extract text from PDF')
       setPdfInputKey((k) => k + 1)
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handleRemoveReport(reportId: string) {
+    setError(null)
+    setRemovingId(reportId)
+
+    const token = await getAccessToken()
+    if (!token) {
+      setError('Please sign in again')
+      setRemovingId(null)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/deactivate-market-report', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ report_id: reportId }),
+      })
+      const payload = (await res.json()) as {
+        success?: boolean
+        message?: string
+      }
+
+      if (!res.ok || !payload.success) {
+        setError(payload.message ?? 'Could not remove market report')
+        return
+      }
+
+      const next = reports.filter((row) => row.id !== reportId)
+      publishReports(next)
+      setConfirmRemoveId(null)
+      if (next.length === 0) setShowUploader(true)
+    } catch {
+      setError('Could not remove market report')
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
+  async function handleTogglePrompts(
+    reportId: string,
+    useInPrompts: boolean,
+  ) {
+    setError(null)
+    setTogglingId(reportId)
+
+    const previous = reports
+    publishReports(
+      reports.map((row) =>
+        row.id === reportId ? { ...row, use_in_prompts: useInPrompts } : row,
+      ),
+    )
+
+    const token = await getAccessToken()
+    if (!token) {
+      publishReports(previous)
+      setError('Please sign in again')
+      setTogglingId(null)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/toggle-market-report-prompts', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          report_id: reportId,
+          use_in_prompts: useInPrompts,
+        }),
+      })
+      const payload = (await res.json()) as {
+        success?: boolean
+        use_in_prompts?: boolean
+        message?: string
+      }
+
+      if (!res.ok || !payload.success) {
+        publishReports(previous)
+        setError(payload.message ?? 'Could not update report settings')
+        return
+      }
+
+      publishReports(
+        previous.map((row) =>
+          row.id === reportId
+            ? {
+                ...row,
+                use_in_prompts:
+                  typeof payload.use_in_prompts === 'boolean'
+                    ? payload.use_in_prompts
+                    : useInPrompts,
+              }
+            : row,
+        ),
+      )
+    } catch {
+      publishReports(previous)
+      setError('Could not update report settings')
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -455,6 +578,11 @@ function MarketReportSection({
                 const statLines = buildReportStatLines(
                   report.extracted_stats ?? {},
                 )
+                const useInPrompts = report.use_in_prompts !== false
+                const isConfirmingRemove = confirmRemoveId === report.id
+                const isRemoving = removingId === report.id
+                const isToggling = togglingId === report.id
+
                 return (
                   <div
                     key={report.id}
@@ -472,17 +600,88 @@ function MarketReportSection({
                     <p className="font-body text-xs text-slate mt-2">
                       Last updated: {formatUploadedAt(report.uploaded_at)}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplacingArea(areaLabel)
-                        setShowUploader(true)
-                        setError(null)
-                      }}
-                      className="font-body text-xs text-slate underline mt-3 hover:text-navy"
-                    >
-                      Replace {areaLabel}
-                    </button>
+
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={useInPrompts}
+                        disabled={isToggling}
+                        onClick={() =>
+                          void handleTogglePrompts(report.id, !useInPrompts)
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal ${
+                          useInPrompts ? 'bg-teal' : 'bg-slate/40'
+                        } ${isToggling ? 'opacity-60' : ''}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            useInPrompts ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <span
+                        className={`font-body text-xs ${
+                          useInPrompts ? 'text-teal' : 'text-slate'
+                        }`}
+                      >
+                        {useInPrompts
+                          ? 'Used in insights and content'
+                          : 'Excluded from prompts'}
+                      </span>
+                    </div>
+
+                    {isConfirmingRemove ? (
+                      <div className="mt-3 space-y-2">
+                        <p className="font-body text-xs text-slate">
+                          Remove this report? It will no longer be used for
+                          insights or content.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            disabled={isRemoving}
+                            onClick={() => setConfirmRemoveId(null)}
+                            className="font-body text-xs text-slate underline hover:text-navy"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isRemoving}
+                            onClick={() => void handleRemoveReport(report.id)}
+                            className="font-body text-xs text-coral underline hover:text-navy"
+                          >
+                            {isRemoving ? 'Removing...' : 'Remove'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplacingArea(areaLabel)
+                            setShowUploader(true)
+                            setConfirmRemoveId(null)
+                            setError(null)
+                          }}
+                          className="font-body text-xs text-slate underline hover:text-navy"
+                        >
+                          Replace {areaLabel}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmRemoveId(report.id)
+                            setError(null)
+                          }}
+                          className="font-body text-xs text-coral underline hover:text-navy"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -494,6 +693,7 @@ function MarketReportSection({
                 onClick={() => {
                   setReplacingArea(null)
                   setShowUploader(true)
+                  setConfirmRemoveId(null)
                   setError(null)
                 }}
                 className="font-body text-xs text-teal underline hover:text-navy"
@@ -1002,10 +1202,17 @@ export default function MarketIntel() {
 
   const handleActiveReportsChange = useCallback(
     (reports: ActiveMarketReport[]) => {
-      setActiveReportId(reports[0]?.id ?? null)
+      const promptEnabled = reports.filter((row) => row.use_in_prompts !== false)
+      setActiveReportId(promptEnabled[0]?.id ?? reports[0]?.id ?? null)
       setActiveReportsKey(
         reports.length > 0
-          ? [...reports.map((row) => row.id)].sort().join('|')
+          ? [...reports]
+              .map(
+                (row) =>
+                  `${row.id}:${row.use_in_prompts !== false ? '1' : '0'}`,
+              )
+              .sort()
+              .join('|')
           : 'none',
       )
     },

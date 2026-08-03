@@ -85,6 +85,7 @@ export async function fetchActiveMarketReports(
     .select('area, report_period, extracted_stats')
     .eq('user_email', userEmail)
     .eq('is_active', true)
+    .eq('use_in_prompts', true)
     .order('uploaded_at', { ascending: false })
 
   if (error) {

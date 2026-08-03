@@ -5,7 +5,7 @@ import {
   requireAuthenticatedUser,
 } from './google-oauth-shared'
 
-const LOG_MODULE = 'get-active-market-report'
+const LOG_MODULE = 'deactivate-market-report'
 
 function safeLog(
   event: string,
@@ -26,43 +26,69 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase()
 }
 
+function parseRequestBody(raw: string | null): { report_id?: unknown } | null {
+  if (!raw?.trim()) return null
+  try {
+    return JSON.parse(raw) as { report_id?: unknown }
+  } catch {
+    return null
+  }
+}
+
+function requireReportId(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
 export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'GET') {
+  if (event.httpMethod !== 'POST') {
     return json(405, { code: 'method_not_allowed', message: 'Method not allowed' })
   }
 
   try {
     const user = await requireAuthenticatedUser(event)
     const userEmail = normalizeEmail(user.email!)
+
+    const body = parseRequestBody(event.body)
+    const reportId = requireReportId(body?.report_id)
+    if (!reportId) {
+      return json(400, {
+        code: 'invalid_request',
+        message: 'missing report_id',
+      })
+    }
+
     const supabase = getServiceSupabase()
 
     const { data, error } = await supabase
       .from('market_reports')
-      .select(
-        'id, user_email, area, report_period, extracted_stats, raw_text, uploaded_at, is_active, use_in_prompts',
-      )
+      .update({ is_active: false })
+      .eq('id', reportId)
       .eq('user_email', userEmail)
       .eq('is_active', true)
-      .order('uploaded_at', { ascending: false })
+      .select('id')
+      .maybeSingle()
 
     if (error) {
-      safeLog('lookup_failed', {
+      safeLog('deactivate_failed', {
         message: error.message.slice(0, 200),
       })
       return json(500, {
         code: 'internal_error',
-        message: 'Failed to load market report',
+        message: 'Failed to remove market report',
       })
     }
 
-    const reports = data ?? []
+    if (!data) {
+      return json(404, {
+        code: 'not_found',
+        message: 'Market report not found',
+      })
+    }
 
-    safeLog('lookup_complete', {
-      user_email: userEmail,
-      report_count: reports.length,
-    })
-
-    return json(200, { reports })
+    safeLog('deactivated', { report_id: reportId, user_email: userEmail })
+    return json(200, { success: true })
   } catch (err) {
     if (err instanceof OAuthAuthError) {
       return json(401, { code: 'unauthenticated' })

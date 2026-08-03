@@ -133,6 +133,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/deactivate-market-report"
+  to = "/.netlify/functions/deactivate-market-report"
+  status = 200
+
+[[redirects]]
+  from = "/api/toggle-market-report-prompts"
+  to = "/.netlify/functions/toggle-market-report-prompts"
+  status = 200
+
+[[redirects]]
   from = "/api/generate-market-insights"
   to = "/.netlify/functions/generate-market-insights"
   status = 200

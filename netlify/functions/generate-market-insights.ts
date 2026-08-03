@@ -531,6 +531,7 @@ export const handler: Handler = async (event) => {
       .select('id, area, report_period, extracted_stats, is_active')
       .eq('user_email', userEmail)
       .eq('is_active', true)
+      .eq('use_in_prompts', true)
       .order('uploaded_at', { ascending: false })
 
     if (activeReportsError) {
@@ -547,7 +548,8 @@ export const handler: Handler = async (event) => {
     if (activeReports.length === 0) {
       return json(404, {
         code: 'not_found',
-        message: 'No active market reports found',
+        message:
+          'No market reports are enabled for insights. Turn on Use for insights and content on at least one report.',
       })
     }
 
