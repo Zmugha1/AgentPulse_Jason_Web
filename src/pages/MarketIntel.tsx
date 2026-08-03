@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Info, Loader2 } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -165,16 +165,162 @@ function IntelCard({
   children,
 }: {
   title: string
-  subtitle?: string
+  subtitle?: ReactNode
   children: ReactNode
 }) {
   return (
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
       <h2 className="font-heading text-xl text-navy">{title}</h2>
       {subtitle ? (
-        <p className="font-body text-sm text-slate mt-1">{subtitle}</p>
+        <div className="font-body text-sm text-slate mt-1 space-y-1">
+          {subtitle}
+        </div>
       ) : null}
       <div className="mt-4">{children}</div>
+    </section>
+  )
+}
+
+function SectionInfoTip({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="relative inline-flex items-start">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex items-center justify-center p-1 rounded text-slate hover:text-navy focus:outline-none focus:ring-2 focus:ring-teal"
+        aria-expanded={open}
+        aria-label={label}
+      >
+        <Info className="w-4 h-4" aria-hidden />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-10 mt-2 w-72 sm:w-80 rounded-lg border border-mint bg-white p-3 shadow-sm">
+          <p className="font-body text-xs text-slate leading-relaxed">{children}</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const SCORING_ROWS: { factor: string; points: string }[] = [
+  {
+    factor: 'Source quality',
+    points: 'Up to +4 (Realtor.com / website hot sources)',
+  },
+  {
+    factor: 'Recency',
+    points: 'Up to +4 (newer leads score higher)',
+  },
+  {
+    factor: 'Contact info',
+    points: '+2 phone and email, +1 one contact method, -2 none',
+  },
+  {
+    factor: 'Engagement',
+    points: 'Purpose notes, pipeline stage, and recent contact',
+  },
+  {
+    factor: 'Home to sell',
+    points: '+3 when the lead has a home to sell',
+  },
+  {
+    factor: 'Penalties',
+    points: '-2 to -4 for stale never-contacted leads still at New',
+  },
+]
+
+const SCORE_BANDS: { band: string; range: string }[] = [
+  { band: 'Hot', range: '10+' },
+  { band: 'Warm', range: '6-9' },
+  { band: 'Cold', range: '3-5' },
+  { band: 'Archived', range: '2 or below' },
+]
+
+function LeadScoringExplained() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <h2 className="font-heading text-xl text-navy">How are leads scored?</h2>
+        <ChevronDown
+          className={`w-5 h-5 text-slate shrink-0 transition-transform ${
+            open ? 'rotate-180' : ''
+          }`}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div className="mt-4 space-y-4">
+          <p className="font-body text-sm text-slate">
+            AgentPulse scores each lead from real pipeline fields. Higher scores
+            surface first in Morning Brief and Lead Intelligence.
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-mint">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-navy text-white">
+                  <th className="font-heading text-sm px-3 py-2">Factor</th>
+                  <th className="font-heading text-sm px-3 py-2">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SCORING_ROWS.map((row, index) => (
+                  <tr
+                    key={row.factor}
+                    className={index % 2 === 0 ? 'bg-cream' : 'bg-white'}
+                  >
+                    <td className="font-body text-sm text-navy px-3 py-2 align-top">
+                      {row.factor}
+                    </td>
+                    <td className="font-body text-sm text-slate px-3 py-2">
+                      {row.points}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-mint">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-navy text-white">
+                  <th className="font-heading text-sm px-3 py-2">Score band</th>
+                  <th className="font-heading text-sm px-3 py-2">Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SCORE_BANDS.map((row, index) => (
+                  <tr
+                    key={row.band}
+                    className={index % 2 === 0 ? 'bg-cream' : 'bg-white'}
+                  >
+                    <td className="font-body text-sm text-navy px-3 py-2">
+                      {row.band}
+                    </td>
+                    <td className="font-body text-sm text-slate px-3 py-2">
+                      {row.range}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -539,7 +685,16 @@ function MarketReportSection({
 
   return (
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
-      <h2 className="font-heading text-xl text-navy">Market Intelligence</h2>
+      <div className="flex items-start gap-2">
+        <h2 className="font-heading text-xl text-navy">Market Intelligence</h2>
+        <SectionInfoTip label="How Market Intelligence reports work">
+          Upload one MLS PDF per market area. AgentPulse extracts the numbers,
+          stores them as your single source of truth, and uses only reports
+          marked for insights and content. Replace updates that area. Remove
+          deactivates a report. Toggle Use for insights and content to keep a
+          report on file without feeding it into drafts or Market Pulse.
+        </SectionInfoTip>
+      </div>
       <p className="font-body text-sm text-slate mt-1">
         Upload your monthly MLS report. AgentPulse extracts the data and uses it
         to power insights, lead actions, email drafts, and all content
@@ -1307,6 +1462,17 @@ export default function MarketIntel() {
 
   return (
     <div className="space-y-6">
+      <header>
+        <h2 className="font-heading text-2xl md:text-3xl text-navy">
+          Market Intel
+        </h2>
+        <p className="font-body text-sm text-slate mt-2">
+          Market Intel connects your live market data with your lead pipeline so
+          you always know which leads to call, what to say, and how your business
+          is growing.
+        </p>
+      </header>
+
       <MarketReportSection onActiveReportsChange={handleActiveReportsChange} />
       <MarketPulsePanel
         key={activeReportsKey}
@@ -1317,6 +1483,7 @@ export default function MarketIntel() {
           writeShowMarketPulsePreference(enabled)
         }}
       />
+      <LeadScoringExplained />
 
       {loading ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">
@@ -1331,7 +1498,17 @@ export default function MarketIntel() {
         </div>
       ) : (
         <>
-      <IntelCard title="This Week" subtitle={getThisWeekSubtitle()}>
+      <IntelCard
+        title="This Week"
+        subtitle={
+          <>
+            <p>{getThisWeekSubtitle()}</p>
+            <p>
+              Leads worked means any lead with an interaction logged this week.
+            </p>
+          </>
+        }
+      >
         <WeeklyActivitySummary />
       </IntelCard>
 
@@ -1386,7 +1563,15 @@ export default function MarketIntel() {
 
       <IntelCard
         title="Where your leads come from"
-        subtitle="Conversion performance by lead source"
+        subtitle={
+          <>
+            <p>Conversion performance by lead source</p>
+            <p>
+              Conversion rate is closed deals divided by total leads per source.
+              Your real pipeline data only.
+            </p>
+          </>
+        }
       >
         <SourcePerformanceTable rows={sourcePerformance} />
       </IntelCard>

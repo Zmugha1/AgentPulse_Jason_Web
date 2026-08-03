@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle, Info, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   openLeadIntelligenceWithFilter,
@@ -22,6 +22,34 @@ type MarketPulsePanelProps = {
 
 const outlineButtonClass =
   'font-body text-sm text-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-teal hover:text-white transition-colors'
+
+function MarketPulseInfoTip() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="relative inline-flex items-start">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex items-center justify-center p-1 rounded text-slate hover:text-navy focus:outline-none focus:ring-2 focus:ring-teal"
+        aria-expanded={open}
+        aria-label="How Market Pulse insights work"
+      >
+        <Info className="w-4 h-4" aria-hidden />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-10 mt-2 w-72 sm:w-80 rounded-lg border border-mint bg-white p-3 shadow-sm">
+          <p className="font-body text-xs text-slate leading-relaxed">
+            Market Pulse compares your uploaded MLS numbers with live lead counts
+            from Supabase. Insights only use real report stats and real pipeline
+            totals. No invented market figures. Toggle Market Pulse off to pause
+            generation without deleting your reports.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export default function MarketPulsePanel({
   reportId,
@@ -100,7 +128,10 @@ export default function MarketPulsePanel({
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-heading text-xl text-navy">Market Pulse</h2>
+          <div className="flex items-start gap-2">
+            <h2 className="font-heading text-xl text-navy">Market Pulse</h2>
+            <MarketPulseInfoTip />
+          </div>
           <p className="font-body text-sm text-slate mt-1">
             Actions for your pipeline based on current market conditions.
           </p>
