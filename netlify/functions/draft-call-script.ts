@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReport,
+  formatMarketContextForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'draft-call-script'
 const CALL_SCRIPT_MODEL = 'claude-sonnet-4-6'
@@ -142,9 +146,13 @@ function formatLeadContext(lead: LeadRow): string {
   ].join('\n')
 }
 
-function buildCallScriptPrompt(voiceProfile: string, lead: LeadRow): string {
+function buildCallScriptPrompt(
+  voiceProfile: string,
+  lead: LeadRow,
+  marketContext: string | null,
+): string {
   const temp = leadTemperature(lead.score)
-  return [
+  const sections = [
     'Generate exactly five bullets for a real estate phone call with this lead.',
     '',
     'Agent voice profile (STZ answers):',
@@ -155,6 +163,11 @@ function buildCallScriptPrompt(voiceProfile: string, lead: LeadRow): string {
     '',
     'Temperature guidance:',
     temperatureGuidance(temp),
+  ]
+  if (marketContext) {
+    sections.push('', marketContext)
+  }
+  sections.push(
     '',
     'Bullet definitions:',
     '1. opening: how to greet and open the call, reference something specific about the lead',
@@ -170,7 +183,8 @@ function buildCallScriptPrompt(voiceProfile: string, lead: LeadRow): string {
     '- Return only valid JSON with keys: opening, reference, question_1, question_2, close.',
     '- No markdown. No preamble.',
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
-  ].join('\n')
+  )
+  return sections.join('\n')
 }
 
 function extractTextFromMessage(content: Anthropic.Messages.ContentBlock[]): string {
@@ -288,12 +302,28 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { report: marketReport, errorMessage: marketReportError } =
+      await fetchActiveMarketReport(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const marketContext = formatMarketContextForPrompt(marketReport)
+
     const voiceProfile = formatStzProfile(
       profile as Record<string, unknown> | null,
     )
-    const prompt = buildCallScriptPrompt(voiceProfile, lead as LeadRow)
+    const prompt = buildCallScriptPrompt(
+      voiceProfile,
+      lead as LeadRow,
+      marketContext,
+    )
 
-    safeLog('draft_started', { lead_id: leadId })
+    safeLog('draft_started', {
+      lead_id: leadId,
+      has_market_context: Boolean(marketContext),
+    })
 
     try {
       const script = await callAnthropicForCallScript(prompt)

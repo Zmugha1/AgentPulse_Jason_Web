@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReport,
+  formatMarketContextForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'draft-email'
 const EMAIL_MODEL = 'claude-sonnet-4-6'
@@ -141,6 +145,7 @@ function formatLeadContext(lead: LeadRow): string {
 function buildEmailPrompt(
   voiceProfile: string,
   lead: LeadRow,
+  marketContext: string | null,
   emailSignature?: string | null,
 ): string {
   const temp = leadTemperature(lead.score)
@@ -155,7 +160,7 @@ function buildEmailPrompt(
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead. Never use the -- character anywhere.',
     '- CRITICAL: Do not write any phone number anywhere in this email. Not in the body, not in the closing, not in the call to action, not anywhere. This is a hard rule. The email must end with the call to action sentence only. No phone number. No name. No company. No URL. The agent will add their own signature manually in Gmail after copying this email body.',
   ]
-  return [
+  const sections = [
     'Write a professional real estate email for this lead.',
     '',
     'Agent voice profile (STZ answers):',
@@ -166,10 +171,12 @@ function buildEmailPrompt(
     '',
     'Temperature and source guidance:',
     temperatureGuidance(temp, lead.source),
-    '',
-    'Rules:',
-    ...rules,
-  ].join('\n')
+  ]
+  if (marketContext) {
+    sections.push('', marketContext)
+  }
+  sections.push('', 'Rules:', ...rules)
+  return sections.join('\n')
 }
 
 function extractTextFromMessage(content: Anthropic.Messages.ContentBlock[]): string {
@@ -280,15 +287,32 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { report: marketReport, errorMessage: marketReportError } =
+      await fetchActiveMarketReport(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const marketContext = formatMarketContextForPrompt(marketReport)
+
     const profileRow = profile as Record<string, unknown> | null
     const emailSignature =
       typeof profileRow?.email_signature === 'string'
         ? profileRow.email_signature
         : null
     const voiceProfile = formatStzProfile(profileRow)
-    const prompt = buildEmailPrompt(voiceProfile, lead as LeadRow, emailSignature)
+    const prompt = buildEmailPrompt(
+      voiceProfile,
+      lead as LeadRow,
+      marketContext,
+      emailSignature,
+    )
 
-    safeLog('draft_started', { lead_id: leadId })
+    safeLog('draft_started', {
+      lead_id: leadId,
+      has_market_context: Boolean(marketContext),
+    })
 
     let subject: string
     let emailBody: string
