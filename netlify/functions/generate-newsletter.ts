@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReports,
+  formatContentMarketDataForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'generate-newsletter'
 const NEWSLETTER_MODEL = 'claude-sonnet-4-6'
@@ -87,8 +91,9 @@ function buildNewsletterPrompt(
   voiceProfile: string,
   topic: string,
   tone: string,
+  marketData: string | null,
 ): string {
-  return [
+  const sections = [
     'You are writing a newsletter for a real estate agent\'s client list of 1,890 people in Lake Country Wisconsin. Write in the agent\'s voice using the profile provided. Never use em dashes. The newsletter should feel personal not corporate. Keep it scannable with short paragraphs. Subject line under 60 characters. Body 300-500 words with natural paragraph breaks using newlines.',
     '',
     'Agent voice profile (STZ answers):',
@@ -96,6 +101,11 @@ function buildNewsletterPrompt(
     '',
     `Topic: ${topic}`,
     `Tone: ${tone}`,
+  ]
+  if (marketData) {
+    sections.push('', marketData)
+  }
+  sections.push(
     '',
     'Rules:',
     '- Return only valid JSON with keys subject and body. No markdown fences, no preamble, no extra keys.',
@@ -104,7 +114,8 @@ function buildNewsletterPrompt(
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead.',
     '- Do not write a signature, sign-off name, phone number, or closing contact block. The signature will be appended automatically after generation.',
     '- JSON shape: {"subject":"...","body":"..."}',
-  ].join('\n')
+  )
+  return sections.join('\n')
 }
 
 function extractTextFromMessage(content: Anthropic.Messages.ContentBlock[]): string {
@@ -202,15 +213,28 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { reports: marketReports, errorMessage: marketReportError } =
+      await fetchActiveMarketReports(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const marketData = formatContentMarketDataForPrompt(marketReports)
+
     const profileRow = profile as Record<string, unknown> | null
     const emailSignature =
       typeof profileRow?.email_signature === 'string'
         ? profileRow.email_signature
         : null
     const voiceProfile = formatStzProfile(profileRow)
-    const prompt = buildNewsletterPrompt(voiceProfile, topic, tone)
+    const prompt = buildNewsletterPrompt(voiceProfile, topic, tone, marketData)
 
-    safeLog('generate_started', { topic_length: topic.length })
+    safeLog('generate_started', {
+      topic_length: topic.length,
+      has_market_data: Boolean(marketData),
+      market_report_count: marketReports.length,
+    })
 
     let subject: string
     let newsletterBody: string

@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReports,
+  formatContentMarketDataForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'generate-podcast-outline'
 const PODCAST_MODEL = 'claude-sonnet-4-6'
@@ -111,7 +115,9 @@ function buildPodcastPrompt(
     '',
     `Topic: ${topic}`,
     `Episode length: ${durationMinutes} minutes`,
-    `Market context: ${marketContext ?? 'none provided'}`,
+    marketContext
+      ? `\n${marketContext}\n\nTalking points should reference real numbers from the market data above.`
+      : 'Market context: none provided',
     '',
     'Rules:',
     '- Return only valid JSON with keys episode_title, opening_hook, talking_points, and closing_cta. No markdown fences, no preamble, no extra keys.',
@@ -268,19 +274,35 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { reports: marketReports, errorMessage: marketReportError } =
+      await fetchActiveMarketReports(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const storedMarketContext = formatContentMarketDataForPrompt(marketReports, {
+      minStatsInstruction:
+        'Reference real numbers from these statistics in the talking points.',
+    })
+    const combinedMarketContext = [storedMarketContext, marketContext]
+      .filter(Boolean)
+      .join('\n\n') || null
+
     const profileRow = profile as Record<string, unknown> | null
     const voiceProfile = formatStzProfile(profileRow)
     const prompt = buildPodcastPrompt(
       voiceProfile,
       topic,
       durationMinutes,
-      marketContext,
+      combinedMarketContext,
     )
 
     safeLog('generate_started', {
       topic_length: topic.length,
       duration_minutes: durationMinutes,
-      has_market_context: marketContext !== null,
+      has_market_context: combinedMarketContext !== null,
+      market_report_count: marketReports.length,
     })
 
     let episode_title: string

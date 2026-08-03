@@ -148,3 +148,96 @@ export function formatMarketContextForPrompt(
   )
   return `${header}\n${blocks.join('\n\n')}`
 }
+
+/**
+ * Prompt block for Content Studio generators. Exact MLS numbers only.
+ * Returns null when no reports.
+ */
+export function formatContentMarketDataForPrompt(
+  reports: ActiveMarketReportRow[],
+  options?: {
+    minStatsInstruction?: string
+  },
+): string | null {
+  if (reports.length === 0) return null
+
+  const minStats =
+    options?.minStatsInstruction ??
+    'Reference at least 3 of these statistics in the content body.'
+
+  const blocks: string[] = []
+  for (const report of reports) {
+    const stats = report.extracted_stats ?? {}
+    const area =
+      (typeof report.area === 'string' && report.area.trim()) ||
+      (typeof stats.area === 'string' && stats.area.trim()) ||
+      'Unknown'
+    const period =
+      (typeof report.report_period === 'string' &&
+        report.report_period.trim()) ||
+      (typeof stats.report_period === 'string' &&
+        stats.report_period.trim()) ||
+      'Unknown'
+
+    const median = asFiniteNumber(stats.median_sales_price)
+    const medianChange = asFiniteNumber(stats.median_sales_price_change_pct)
+    const closed = asFiniteNumber(stats.closed_sales)
+    const closedChange = asFiniteNumber(stats.closed_sales_change_pct)
+    const newListings = asFiniteNumber(stats.new_listings)
+    const newListingsChange = asFiniteNumber(stats.new_listings_change_pct)
+    const daysOnMarket = asFiniteNumber(stats.days_on_market)
+    const daysChange = asFiniteNumber(stats.days_on_market_change_pct)
+    const pctOfList = asFiniteNumber(stats.pct_of_list_price)
+    const inventory = asFiniteNumber(stats.inventory)
+
+    const lines = [`${area} -- ${period}:`]
+    if (median !== null) {
+      const change =
+        medianChange !== null
+          ? ` (${formatSignedPct(medianChange)} vs last year)`
+          : ''
+      lines.push(`- Median sales price: ${formatCurrency(median)}${change}`)
+    }
+    if (closed !== null || closedChange !== null) {
+      const countPart = closed !== null ? String(Math.round(closed)) : 'n/a'
+      const changePart =
+        closedChange !== null ? ` (${formatSignedPct(closedChange)})` : ''
+      lines.push(`- Closed sales: ${countPart}${changePart}`)
+    }
+    if (newListings !== null || newListingsChange !== null) {
+      const countPart =
+        newListings !== null ? String(Math.round(newListings)) : 'n/a'
+      const changePart =
+        newListingsChange !== null
+          ? ` (${formatSignedPct(newListingsChange)})`
+          : ''
+      lines.push(`- New listings: ${countPart}${changePart}`)
+    }
+    if (daysOnMarket !== null) {
+      const changePart =
+        daysChange !== null ? ` (${formatSignedPct(daysChange)})` : ''
+      lines.push(
+        `- Days on market: ${Math.round(daysOnMarket)}${changePart}`,
+      )
+    }
+    if (pctOfList !== null) {
+      lines.push(
+        `- Sellers receiving: ${Math.round(pctOfList * 10) / 10}% of list price`,
+      )
+    }
+    if (inventory !== null) {
+      lines.push(`- Inventory: ${Math.round(inventory)} homes available`)
+    }
+
+    blocks.push(lines.join('\n'))
+  }
+
+  return [
+    'Current market data (use these EXACT numbers in the content. Do not round, estimate, or invent any figures.',
+    `${minStats}):`,
+    '',
+    ...blocks,
+    '',
+    "The content MUST include specific dollar amounts and percentages from above. Never write 'homes are selling quickly' when you can write 'homes are selling in 32 days'. Never write 'prices are strong' when you can write 'median price hit $620,000'.",
+  ].join('\n')
+}

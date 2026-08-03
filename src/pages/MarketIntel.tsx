@@ -13,6 +13,10 @@ import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
 import MarketPulsePanel from '../components/MarketPulsePanel'
 import SourcePerformanceTable from '../components/SourcePerformanceTable'
 import { getStageLabel } from '../lib/pipelineStages'
+import {
+  readShowMarketPulsePreference,
+  writeShowMarketPulsePreference,
+} from '../lib/marketPulseFilter'
 import { supabase } from '../lib/supabase'
 import {
   fetchWebsiteMetrics,
@@ -1181,6 +1185,9 @@ export default function MarketIntel() {
   const [error, setError] = useState<string | null>(null)
   const [activeReportId, setActiveReportId] = useState<string | null>(null)
   const [activeReportsKey, setActiveReportsKey] = useState('none')
+  const [showMarketPulse, setShowMarketPulse] = useState(() =>
+    readShowMarketPulsePreference(true),
+  )
   const [totals, setTotals] = useState<Awaited<
     ReturnType<typeof getTotalCounts>
   > | null>(null)
@@ -1301,7 +1308,15 @@ export default function MarketIntel() {
   return (
     <div className="space-y-6">
       <MarketReportSection onActiveReportsChange={handleActiveReportsChange} />
-      <MarketPulsePanel key={activeReportsKey} reportId={activeReportId} />
+      <MarketPulsePanel
+        key={activeReportsKey}
+        reportId={activeReportId}
+        enabled={showMarketPulse}
+        onEnabledChange={(enabled) => {
+          setShowMarketPulse(enabled)
+          writeShowMarketPulsePreference(enabled)
+        }}
+      />
 
       {loading ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">

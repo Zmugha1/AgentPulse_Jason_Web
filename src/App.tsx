@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import Sidebar from './components/Sidebar'
 import type { AppTab } from './lib/navigation'
-import { OPEN_LEAD_INTELLIGENCE_EVENT } from './lib/marketPulseFilter'
+import { OPEN_LEAD_INTELLIGENCE_EVENT, OPEN_MARKET_INTEL_EVENT } from './lib/marketPulseFilter'
 import { supabase } from './lib/supabase'
 import ContentStudio from './pages/ContentStudio'
 import Integrations from './pages/Integrations'
@@ -41,15 +41,21 @@ function App() {
       setActiveTab('intelligence')
       setSidebarOpen(false)
     }
+    function handleOpenMarketIntel() {
+      setActiveTab('market')
+      setSidebarOpen(false)
+    }
     window.addEventListener(
       OPEN_LEAD_INTELLIGENCE_EVENT,
       handleOpenLeadIntelligence,
     )
+    window.addEventListener(OPEN_MARKET_INTEL_EVENT, handleOpenMarketIntel)
     return () => {
       window.removeEventListener(
         OPEN_LEAD_INTELLIGENCE_EVENT,
         handleOpenLeadIntelligence,
       )
+      window.removeEventListener(OPEN_MARKET_INTEL_EVENT, handleOpenMarketIntel)
     }
   }, [])
 

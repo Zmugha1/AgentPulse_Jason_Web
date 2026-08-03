@@ -16,18 +16,24 @@ type MarketInsight = {
 
 type MarketPulsePanelProps = {
   reportId: string | null
+  enabled: boolean
+  onEnabledChange: (enabled: boolean) => void
 }
 
 const outlineButtonClass =
   'font-body text-sm text-teal border border-teal rounded px-4 py-2 min-h-[44px] hover:bg-teal hover:text-white transition-colors'
 
-export default function MarketPulsePanel({ reportId }: MarketPulsePanelProps) {
+export default function MarketPulsePanel({
+  reportId,
+  enabled,
+  onEnabledChange,
+}: MarketPulsePanelProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [insights, setInsights] = useState<MarketInsight[]>([])
 
   useEffect(() => {
-    if (!reportId) {
+    if (!enabled || !reportId) {
       setInsights([])
       setError(null)
       setLoading(false)
@@ -88,24 +94,60 @@ export default function MarketPulsePanel({ reportId }: MarketPulsePanelProps) {
     return () => {
       cancelled = true
     }
-  }, [reportId])
+  }, [reportId, enabled])
 
   return (
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
-      <h2 className="font-heading text-xl text-navy">Market Pulse</h2>
-      <p className="font-body text-sm text-slate mt-1">
-        Actions for your pipeline based on current market conditions.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-heading text-xl text-navy">Market Pulse</h2>
+          <p className="font-body text-sm text-slate mt-1">
+            Actions for your pipeline based on current market conditions.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={`font-body text-xs ${
+              enabled ? 'text-teal' : 'text-slate'
+            }`}
+          >
+            Market Pulse
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label="Toggle Market Pulse"
+            onClick={() => onEnabledChange(!enabled)}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal ${
+              enabled ? 'bg-teal' : 'bg-slate/40'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
 
       <div className="mt-4">
-        {!reportId ? (
+        {!enabled ? (
+          <p className="font-body text-sm text-slate">
+            Market Pulse is paused. Toggle on to generate pipeline insights from
+            your report.
+          </p>
+        ) : null}
+
+        {enabled && !reportId ? (
           <p className="font-body text-sm text-slate">
             Upload your MLS report above to see market-driven insights for your
             pipeline.
           </p>
         ) : null}
 
-        {reportId && loading ? (
+        {enabled && reportId && loading ? (
           <div className="flex items-center gap-2 text-slate py-4">
             <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
             <p className="font-body text-sm">
@@ -114,20 +156,24 @@ export default function MarketPulsePanel({ reportId }: MarketPulsePanelProps) {
           </div>
         ) : null}
 
-        {reportId && !loading && error ? (
+        {enabled && reportId && !loading && error ? (
           <p className="font-body text-sm text-coral" role="alert">
             {error}
           </p>
         ) : null}
 
-        {reportId && !loading && !error && insights.length === 0 ? (
+        {enabled &&
+        reportId &&
+        !loading &&
+        !error &&
+        insights.length === 0 ? (
           <p className="font-body text-sm text-slate">
             No actionable insights right now. Check back after your next report
             upload.
           </p>
         ) : null}
 
-        {reportId && !loading && insights.length > 0 ? (
+        {enabled && reportId && !loading && insights.length > 0 ? (
           <div className="space-y-4">
             {insights.map((insight, index) => {
               const isWarning = insight.is_warning === true

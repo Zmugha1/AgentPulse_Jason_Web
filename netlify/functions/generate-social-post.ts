@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReports,
+  formatContentMarketDataForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'generate-social-post'
 const SOCIAL_MODEL = 'claude-sonnet-4-6'
@@ -93,8 +97,9 @@ function buildSocialPostPrompt(
   voiceProfile: string,
   postType: string,
   details: string,
+  marketData: string | null,
 ): string {
-  return [
+  const sections = [
     'You are writing social media posts for a Lake Country Wisconsin real estate agent. Write in the agent\'s voice using the profile provided. Never use em dashes. Return two variants only: one shared post for Facebook and Instagram, and one LinkedIn post.',
     '',
     'Agent voice profile (STZ answers):',
@@ -102,16 +107,23 @@ function buildSocialPostPrompt(
     '',
     `Post type: ${postType}`,
     `Details: ${details}`,
+  ]
+  if (marketData) {
+    sections.push('', marketData)
+  }
+  sections.push(
     '',
     'Rules:',
     '- Return only valid JSON with keys social and linkedin. No markdown fences, no preamble, no extra keys.',
     '- social (Facebook + Instagram): warm, conversational, 2-3 sentences, 1-2 relevant emoji, end with 3-5 hashtags such as #LakeCountryHomes #WisconsinRealEstate.',
     '- linkedin: professional tone, positions the agent as a market expert, 3-4 sentences, no emoji, no hashtags.',
+    '- When market data is provided, include at least 1-2 specific stats from the report in each post.',
     '- Never use em dashes (--) in your output. Use commas, periods, or line breaks instead.',
     '- Do not write any phone number anywhere.',
     '- Do not write a signature, sign-off name, or closing contact block.',
     '- JSON shape: {"social":"...","linkedin":"..."}',
-  ].join('\n')
+  )
+  return sections.join('\n')
 }
 
 function extractTextFromMessage(content: Anthropic.Messages.ContentBlock[]): string {
@@ -217,13 +229,32 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { reports: marketReports, errorMessage: marketReportError } =
+      await fetchActiveMarketReports(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const marketData = formatContentMarketDataForPrompt(marketReports, {
+      minStatsInstruction:
+        'Include at least 1-2 specific statistics from the report in each post.',
+    })
+
     const profileRow = profile as Record<string, unknown> | null
     const voiceProfile = formatStzProfile(profileRow)
-    const prompt = buildSocialPostPrompt(voiceProfile, postType, details)
+    const prompt = buildSocialPostPrompt(
+      voiceProfile,
+      postType,
+      details,
+      marketData,
+    )
 
     safeLog('generate_started', {
       post_type: postType,
       details_length: details.length,
+      has_market_data: Boolean(marketData),
+      market_report_count: marketReports.length,
     })
 
     let social: string

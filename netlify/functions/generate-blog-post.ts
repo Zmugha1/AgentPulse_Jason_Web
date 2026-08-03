@@ -5,6 +5,10 @@ import {
   getServiceSupabase,
   requireAuthenticatedUser,
 } from './google-oauth-shared'
+import {
+  fetchActiveMarketReports,
+  formatContentMarketDataForPrompt,
+} from './market-report-context'
 
 const LOG_MODULE = 'generate-blog-post'
 const BLOG_MODEL = 'claude-sonnet-4-6'
@@ -120,7 +124,9 @@ function buildBlogPrompt(
     '',
     `Topic: ${topic}`,
     `Target audience: ${targetAudience}`,
-    `Market data: ${marketData ?? 'none provided'}`,
+    marketData
+      ? `\n${marketData}\n\nInclude real stats from the market data in the first paragraph and throughout the post.`
+      : 'Market data: none provided',
     '',
     'Rules:',
     '- Return only valid JSON with keys title, slug, meta_description, and content. No markdown fences, no preamble, no extra keys.',
@@ -238,13 +244,31 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
+    const { reports: marketReports, errorMessage: marketReportError } =
+      await fetchActiveMarketReports(supabase, userEmail)
+    if (marketReportError) {
+      safeLog('market_report_lookup_failed', {
+        message: marketReportError.slice(0, 200),
+      })
+    }
+    const storedMarketData = formatContentMarketDataForPrompt(marketReports)
+    const combinedMarketData = [storedMarketData, marketData]
+      .filter(Boolean)
+      .join('\n\n') || null
+
     const profileRow = profile as Record<string, unknown> | null
     const voiceProfile = formatStzProfile(profileRow)
-    const prompt = buildBlogPrompt(voiceProfile, topic, targetAudience, marketData)
+    const prompt = buildBlogPrompt(
+      voiceProfile,
+      topic,
+      targetAudience,
+      combinedMarketData,
+    )
 
     safeLog('generate_started', {
       topic_length: topic.length,
-      has_market_data: Boolean(marketData),
+      has_market_data: Boolean(combinedMarketData),
+      market_report_count: marketReports.length,
       target_audience: targetAudience,
     })
 

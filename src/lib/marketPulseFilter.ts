@@ -2,6 +2,8 @@
 
 export const MARKET_PULSE_FILTER_KEY = 'agentpulse_market_pulse_filter'
 export const OPEN_LEAD_INTELLIGENCE_EVENT = 'agentpulse:open-lead-intelligence'
+export const OPEN_MARKET_INTEL_EVENT = 'agentpulse:open-market-intel'
+export const SHOW_MARKET_PULSE_KEY = 'agentpulse_show_market_pulse'
 
 export type MarketPulseLeadFilter = {
   status: Array<'hot' | 'warm' | 'cold'> | null
@@ -52,5 +54,27 @@ export function readMarketPulseFilterFromStorage(): MarketPulseLeadFilter | null
     return isMarketPulseLeadFilter(parsed) ? parsed : null
   } catch {
     return null
+  }
+}
+
+export function openMarketIntel(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_MARKET_INTEL_EVENT))
+}
+
+export function readShowMarketPulsePreference(defaultValue = true): boolean {
+  try {
+    const raw = localStorage.getItem(SHOW_MARKET_PULSE_KEY)
+    if (raw === null) return defaultValue
+    return raw === 'true'
+  } catch {
+    return defaultValue
+  }
+}
+
+export function writeShowMarketPulsePreference(enabled: boolean): void {
+  try {
+    localStorage.setItem(SHOW_MARKET_PULSE_KEY, String(enabled))
+  } catch {
+    // ignore storage failures
   }
 }
