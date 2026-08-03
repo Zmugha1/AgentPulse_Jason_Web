@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   openLeadIntelligenceWithFilter,
@@ -9,8 +9,9 @@ import {
 type MarketInsight = {
   headline: string
   body: string
-  lead_filter: MarketPulseLeadFilter
+  lead_filter: MarketPulseLeadFilter | null
   action: string
+  is_warning?: boolean
 }
 
 type MarketPulsePanelProps = {
@@ -128,31 +129,48 @@ export default function MarketPulsePanel({ reportId }: MarketPulsePanelProps) {
 
         {reportId && !loading && insights.length > 0 ? (
           <div className="space-y-4">
-            {insights.map((insight, index) => (
-              <article
-                key={`${insight.headline}-${index}`}
-                className="border border-mint rounded-lg p-4 bg-cream/40"
-              >
-                <h3 className="font-heading text-base font-bold text-navy">
-                  {insight.headline}
-                </h3>
-                <p className="font-body text-sm text-slate mt-2 leading-relaxed">
-                  {insight.body}
-                </p>
-                <p className="font-body text-sm text-teal italic mt-2">
-                  {insight.action}
-                </p>
-                <button
-                  type="button"
-                  className={`${outlineButtonClass} mt-3`}
-                  onClick={() =>
-                    openLeadIntelligenceWithFilter(insight.lead_filter)
-                  }
+            {insights.map((insight, index) => {
+              const isWarning = insight.is_warning === true
+              return (
+                <article
+                  key={`${insight.headline}-${index}`}
+                  className={`rounded-lg p-4 bg-cream/40 border border-mint ${
+                    isWarning ? 'border-l-4 border-l-coral' : ''
+                  }`}
                 >
-                  View These Leads
-                </button>
-              </article>
-            ))}
+                  <h3 className="font-heading text-base font-bold text-navy flex items-start gap-2">
+                    {isWarning ? (
+                      <AlertTriangle
+                        className="w-5 h-5 text-coral shrink-0 mt-0.5"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <span>{insight.headline}</span>
+                  </h3>
+                  <p className="font-body text-sm text-slate mt-2 leading-relaxed">
+                    {insight.body}
+                  </p>
+                  <p
+                    className={`font-body text-sm italic mt-2 ${
+                      isWarning ? 'text-coral' : 'text-teal'
+                    }`}
+                  >
+                    {insight.action}
+                  </p>
+                  {!isWarning && insight.lead_filter ? (
+                    <button
+                      type="button"
+                      className={`${outlineButtonClass} mt-3`}
+                      onClick={() =>
+                        openLeadIntelligenceWithFilter(insight.lead_filter!)
+                      }
+                    >
+                      View These Leads
+                    </button>
+                  ) : null}
+                </article>
+              )
+            })}
           </div>
         ) : null}
       </div>

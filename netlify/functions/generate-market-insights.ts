@@ -44,8 +44,28 @@ type LeadFilter = {
 type MarketInsight = {
   headline: string
   body: string
-  lead_filter: LeadFilter
+  lead_filter: LeadFilter | null
   action: string
+  is_warning: boolean
+}
+
+const STZ_PROFILE_SELECT =
+  'q1_1, q1_2, q1_3, q1_4, q1_5, q2_1, q2_2, q2_3, q2_4, q2_5, q3_1, q3_2, q3_3, q3_4, q3_5, q4_1, q4_2, q4_3, q4_4, q4_5, q5_1, q5_2, q5_3, q5_4, q5_5'
+
+const STZ_QUESTION_KEYS = [
+  'q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5',
+  'q2_1', 'q2_2', 'q2_3', 'q2_4', 'q2_5',
+  'q3_1', 'q3_2', 'q3_3', 'q3_4', 'q3_5',
+  'q4_1', 'q4_2', 'q4_3', 'q4_4', 'q4_5',
+  'q5_1', 'q5_2', 'q5_3', 'q5_4', 'q5_5',
+] as const
+
+const EMPTY_LEAD_FILTER: LeadFilter = {
+  status: null,
+  has_home_to_sell: null,
+  pipeline_stage: null,
+  never_contacted: null,
+  stale: null,
 }
 
 function safeLog(
@@ -201,6 +221,18 @@ function asNullableString(value: unknown): string | null {
   return trimmed || null
 }
 
+function formatStzVoiceProfile(row: Record<string, unknown> | null): string {
+  if (!row) return 'No STZ profile on file.'
+  const lines: string[] = []
+  for (const key of STZ_QUESTION_KEYS) {
+    const answer = row[key]
+    if (typeof answer === 'string' && answer.trim()) {
+      lines.push(`${key}: ${answer.trim()}`)
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') : 'No STZ profile answers on file.'
+}
+
 function normalizeInsight(raw: unknown): MarketInsight | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const obj = raw as Record<string, unknown>
@@ -209,22 +241,35 @@ function normalizeInsight(raw: unknown): MarketInsight | null {
   const action = typeof obj.action === 'string' ? obj.action.trim() : ''
   if (!headline || !body || !action) return null
 
-  const filterRaw =
-    obj.lead_filter && typeof obj.lead_filter === 'object' && !Array.isArray(obj.lead_filter)
-      ? (obj.lead_filter as Record<string, unknown>)
-      : {}
+  const isWarning = obj.is_warning === true
+  let leadFilter: LeadFilter | null = null
 
-  return {
-    headline: headline.slice(0, 60),
-    body,
-    action,
-    lead_filter: {
+  if (obj.lead_filter === null || obj.lead_filter === undefined) {
+    leadFilter = isWarning ? null : { ...EMPTY_LEAD_FILTER }
+  } else if (
+    typeof obj.lead_filter === 'object' &&
+    !Array.isArray(obj.lead_filter)
+  ) {
+    const filterRaw = obj.lead_filter as Record<string, unknown>
+    leadFilter = {
       status: asNullableStringArray(filterRaw.status),
       has_home_to_sell: asNullableBoolean(filterRaw.has_home_to_sell),
       pipeline_stage: asNullableString(filterRaw.pipeline_stage),
       never_contacted: asNullableBoolean(filterRaw.never_contacted),
       stale: asNullableBoolean(filterRaw.stale),
-    },
+    }
+  } else if (isWarning) {
+    leadFilter = null
+  } else {
+    leadFilter = { ...EMPTY_LEAD_FILTER }
+  }
+
+  return {
+    headline: headline.slice(0, 80),
+    body,
+    action,
+    lead_filter: leadFilter,
+    is_warning: isWarning,
   }
 }
 
@@ -258,7 +303,8 @@ function parseInsightsPayload(raw: string): MarketInsight[] {
   for (const item of insightsRaw) {
     const normalized = normalizeInsight(item)
     if (normalized) insights.push(normalized)
-    if (insights.length >= 4) break
+    // Allow warning + up to 4 actionable insights
+    if (insights.length >= 5) break
   }
   return insights
 }
@@ -268,6 +314,7 @@ async function callAnthropicForInsights(
   leadCounts: LeadCounts,
   area: string,
   reportPeriod: string,
+  voiceProfile: string,
 ): Promise<MarketInsight[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
   if (!apiKey) {
@@ -280,12 +327,25 @@ Period: ${reportPeriod || 'Unknown'}
 Extracted stats (use only these numbers, never invent):
 ${JSON.stringify(reportStats, null, 2)}
 
+Agent voice profile (STZ answers). Use this to infer the market area the agent actually works:
+${voiceProfile}
+
 Lead pipeline counts (use only these numbers):
 - Warm leads with email: ${leadCounts.warm_with_email}
 - Leads with a home to sell: ${leadCounts.has_home_to_sell}
 - Leads in nurture / Unresponsive stage: ${leadCounts.nurture_unresponsive}
 - Hot leads never contacted: ${leadCounts.hot_never_contacted}
 - Stale leads (365+ days, no contact, stage new): ${leadCounts.stale_leads}
+
+If the report area does not match the market area implied by the agent voice profile, start your response with a mismatch warning insight:
+{
+  "headline": "Market Report Area Mismatch",
+  "body": "The uploaded report covers [area] but your leads and profile suggest you work in a different market. The insights below may not be accurate. Please upload a report for your actual market area.",
+  "lead_filter": null,
+  "action": "Go to Market Intel and upload your correct MLS market report.",
+  "is_warning": true
+}
+Then continue with the other insights only if the data is still useful context.
 
 Return ONLY valid JSON with this shape:
 {
@@ -300,16 +360,18 @@ Return ONLY valid JSON with this shape:
         "never_contacted": true or null,
         "stale": true or null
       },
-      "action": "string (what the agent should say or do)"
+      "action": "string (what the agent should say or do)",
+      "is_warning": false
     }
   ]
 }
 
 Rules:
-- 3-4 insights maximum.
-- Each insight must be grounded in real report numbers and lead counts above.
+- 3-4 actionable insights maximum, plus an optional leading mismatch warning.
+- Each non-warning insight must be grounded in real report numbers and lead counts above.
 - No generic advice.
-- Skip an insight if the matching lead count is 0.
+- Skip an actionable insight if the matching lead count is 0.
+- Warning insights must set is_warning to true and lead_filter to null.
 - Return only JSON, no markdown, no preamble.`
 
   const client = new Anthropic({ apiKey })
@@ -394,6 +456,22 @@ export const handler: Handler = async (event) => {
         ? (report.extracted_stats as Record<string, unknown>)
         : {}
 
+    const { data: profile, error: profileError } = await supabase
+      .from('stz_profile')
+      .select(STZ_PROFILE_SELECT)
+      .eq('user_email', userEmail)
+      .maybeSingle()
+
+    if (profileError) {
+      safeLog('stz_profile_lookup_failed', {
+        message: profileError.message.slice(0, 200),
+      })
+    }
+
+    const voiceProfile = formatStzVoiceProfile(
+      profile as Record<string, unknown> | null,
+    )
+
     let insights: MarketInsight[]
     try {
       insights = await callAnthropicForInsights(
@@ -401,6 +479,7 @@ export const handler: Handler = async (event) => {
         leadCounts,
         typeof report.area === 'string' ? report.area : '',
         typeof report.report_period === 'string' ? report.report_period : '',
+        voiceProfile,
       )
     } catch (err) {
       safeLog('anthropic_failed', {
@@ -423,6 +502,7 @@ export const handler: Handler = async (event) => {
     safeLog('insights_generated', {
       report_id: reportId,
       insight_count: insights.length,
+      has_area_warning: insights.some((insight) => insight.is_warning),
       warm_with_email: leadCounts.warm_with_email,
       has_home_to_sell: leadCounts.has_home_to_sell,
       nurture_unresponsive: leadCounts.nurture_unresponsive,
