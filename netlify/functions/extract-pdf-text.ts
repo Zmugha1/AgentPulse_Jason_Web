@@ -392,16 +392,19 @@ export const handler: Handler = async (event) => {
     }
 
     const supabase = getServiceSupabase()
+    const reportArea = stats.area.trim()
 
     const { error: deactivateError } = await supabase
       .from('market_reports')
       .update({ is_active: false })
       .eq('user_email', userEmail)
       .eq('is_active', true)
+      .eq('area', reportArea)
 
     if (deactivateError) {
       safeLog('deactivate_failed', {
         message: deactivateError.message.slice(0, 200),
+        area: reportArea,
       })
       return json(500, {
         code: 'internal_error',
@@ -413,7 +416,7 @@ export const handler: Handler = async (event) => {
       .from('market_reports')
       .insert({
         user_email: userEmail,
-        area: stats.area,
+        area: reportArea,
         report_period: stats.report_period,
         extracted_stats: stats,
         raw_text: text,

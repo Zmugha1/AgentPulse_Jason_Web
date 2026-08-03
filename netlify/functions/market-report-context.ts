@@ -31,56 +31,7 @@ function formatSignedPct(value: number): string {
   return `${sign}${rounded}%`
 }
 
-/**
- * Fetch the user's active MLS report, if any.
- * Returns null when missing or on lookup failure (caller may log).
- */
-export async function fetchActiveMarketReport(
-  supabase: SupabaseClient,
-  userEmail: string,
-): Promise<{ report: ActiveMarketReportRow | null; errorMessage: string | null }> {
-  const { data, error } = await supabase
-    .from('market_reports')
-    .select('area, report_period, extracted_stats')
-    .eq('user_email', userEmail)
-    .eq('is_active', true)
-    .order('uploaded_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    return { report: null, errorMessage: error.message }
-  }
-  if (!data) {
-    return { report: null, errorMessage: null }
-  }
-
-  const stats =
-    data.extracted_stats &&
-    typeof data.extracted_stats === 'object' &&
-    !Array.isArray(data.extracted_stats)
-      ? (data.extracted_stats as Record<string, unknown>)
-      : null
-
-  return {
-    report: {
-      area: typeof data.area === 'string' ? data.area : null,
-      report_period:
-        typeof data.report_period === 'string' ? data.report_period : null,
-      extracted_stats: stats,
-    },
-    errorMessage: null,
-  }
-}
-
-/**
- * Prompt block with real MLS numbers only. Returns null when no report.
- */
-export function formatMarketContextForPrompt(
-  report: ActiveMarketReportRow | null,
-): string | null {
-  if (!report) return null
-
+function formatOneReportBlock(report: ActiveMarketReportRow): string {
   const stats = report.extracted_stats ?? {}
   const area =
     (typeof report.area === 'string' && report.area.trim()) ||
@@ -97,11 +48,7 @@ export function formatMarketContextForPrompt(
   const pctOfList = asFiniteNumber(stats.pct_of_list_price)
   const closedChange = asFiniteNumber(stats.closed_sales_change_pct)
 
-  const lines = [
-    'Current market context (use these real numbers naturally in the message if relevant to this lead. Never invent statistics):',
-    `Area: ${area}`,
-    `Period: ${period}`,
-  ]
+  const lines = [`Area: ${area}`, `Period: ${period}`]
 
   if (median !== null) {
     const change =
@@ -121,4 +68,82 @@ export function formatMarketContextForPrompt(
   }
 
   return lines.join('\n')
+}
+
+/**
+ * Fetch all active MLS reports for the user.
+ */
+export async function fetchActiveMarketReports(
+  supabase: SupabaseClient,
+  userEmail: string,
+): Promise<{
+  reports: ActiveMarketReportRow[]
+  errorMessage: string | null
+}> {
+  const { data, error } = await supabase
+    .from('market_reports')
+    .select('area, report_period, extracted_stats')
+    .eq('user_email', userEmail)
+    .eq('is_active', true)
+    .order('uploaded_at', { ascending: false })
+
+  if (error) {
+    return { reports: [], errorMessage: error.message }
+  }
+
+  const reports: ActiveMarketReportRow[] = []
+  for (const row of data ?? []) {
+    const stats =
+      row.extracted_stats &&
+      typeof row.extracted_stats === 'object' &&
+      !Array.isArray(row.extracted_stats)
+        ? (row.extracted_stats as Record<string, unknown>)
+        : null
+    reports.push({
+      area: typeof row.area === 'string' ? row.area : null,
+      report_period:
+        typeof row.report_period === 'string' ? row.report_period : null,
+      extracted_stats: stats,
+    })
+  }
+
+  return { reports, errorMessage: null }
+}
+
+/** @deprecated Prefer fetchActiveMarketReports. Returns the newest active report. */
+export async function fetchActiveMarketReport(
+  supabase: SupabaseClient,
+  userEmail: string,
+): Promise<{ report: ActiveMarketReportRow | null; errorMessage: string | null }> {
+  const { reports, errorMessage } = await fetchActiveMarketReports(
+    supabase,
+    userEmail,
+  )
+  return { report: reports[0] ?? null, errorMessage }
+}
+
+/**
+ * Prompt block with real MLS numbers only. Returns null when no reports.
+ */
+export function formatMarketContextForPrompt(
+  reportOrReports: ActiveMarketReportRow | ActiveMarketReportRow[] | null,
+): string | null {
+  const reports = Array.isArray(reportOrReports)
+    ? reportOrReports
+    : reportOrReports
+      ? [reportOrReports]
+      : []
+  if (reports.length === 0) return null
+
+  const header =
+    'Current market context (use these real numbers naturally in the message if relevant to this lead. Never invent statistics):'
+
+  if (reports.length === 1) {
+    return `${header}\n${formatOneReportBlock(reports[0])}`
+  }
+
+  const blocks = reports.map(
+    (report, index) => `Report ${index + 1}:\n${formatOneReportBlock(report)}`,
+  )
+  return `${header}\n${blocks.join('\n\n')}`
 }

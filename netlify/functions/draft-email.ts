@@ -6,7 +6,7 @@ import {
   requireAuthenticatedUser,
 } from './google-oauth-shared'
 import {
-  fetchActiveMarketReport,
+  fetchActiveMarketReports,
   formatMarketContextForPrompt,
 } from './market-report-context'
 
@@ -287,14 +287,14 @@ export const handler: Handler = async (event) => {
       safeLog('stz_profile_lookup_failed', { reason: 'db_error' })
     }
 
-    const { report: marketReport, errorMessage: marketReportError } =
-      await fetchActiveMarketReport(supabase, userEmail)
+    const { reports: marketReports, errorMessage: marketReportError } =
+      await fetchActiveMarketReports(supabase, userEmail)
     if (marketReportError) {
       safeLog('market_report_lookup_failed', {
         message: marketReportError.slice(0, 200),
       })
     }
-    const marketContext = formatMarketContextForPrompt(marketReport)
+    const marketContext = formatMarketContextForPrompt(marketReports)
 
     const profileRow = profile as Record<string, unknown> | null
     const emailSignature =

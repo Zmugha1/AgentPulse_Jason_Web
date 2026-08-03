@@ -310,10 +310,9 @@ function parseInsightsPayload(raw: string): MarketInsight[] {
 }
 
 async function callAnthropicForInsights(
-  reportStats: Record<string, unknown>,
+  reportsContext: string,
+  reportAreas: string[],
   leadCounts: LeadCounts,
-  area: string,
-  reportPeriod: string,
   voiceProfile: string,
 ): Promise<MarketInsight[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
@@ -321,11 +320,12 @@ async function callAnthropicForInsights(
     throw new Error('ANTHROPIC_API_KEY is not configured')
   }
 
-  const userPrompt = `MLS report context:
-Area: ${area || 'Unknown'}
-Period: ${reportPeriod || 'Unknown'}
-Extracted stats (use only these numbers, never invent):
-${JSON.stringify(reportStats, null, 2)}
+  const areasLabel = reportAreas.length > 0 ? reportAreas.join(', ') : 'Unknown'
+
+  const userPrompt = `MLS report context (combined active reports; use only these numbers, never invent):
+Active report areas: ${areasLabel}
+
+${reportsContext}
 
 Agent voice profile (STZ answers). Use this to infer the market area the agent actually works:
 ${voiceProfile}
@@ -337,7 +337,7 @@ Lead pipeline counts (use only these numbers):
 - Hot leads never contacted: ${leadCounts.hot_never_contacted}
 - Stale leads (365+ days, no contact, stage new): ${leadCounts.stale_leads}
 
-If the report area does not match the market area implied by the agent voice profile, start your response with a mismatch warning insight:
+If the report area(s) do not match the market area implied by the agent voice profile, start your response with a mismatch warning insight:
 {
   "headline": "Market Report Area Mismatch",
   "body": "The uploaded report covers [area] but your leads and profile suggest you work in a different market. The insights below may not be accurate. Please upload a report for your actual market area.",
@@ -352,7 +352,7 @@ Return ONLY valid JSON with this shape:
   "insights": [
     {
       "headline": "string (under 60 chars, specific and urgent)",
-      "body": "string (2-3 sentences, references specific numbers, explains why these leads should be contacted now)",
+      "body": "string (2-3 sentences, references specific numbers and area names, explains why these leads should be contacted now)",
       "lead_filter": {
         "status": ["hot","warm"] or null,
         "has_home_to_sell": true or null,
@@ -369,6 +369,7 @@ Return ONLY valid JSON with this shape:
 Rules:
 - 3-4 actionable insights maximum, plus an optional leading mismatch warning.
 - Each non-warning insight must be grounded in real report numbers and lead counts above.
+- When multiple areas are present, reference the combined market picture and name the area for each number.
 - No generic advice.
 - Skip an actionable insight if the matching lead count is 0.
 - Warning insights must set is_warning to true and lead_filter to null.
@@ -391,6 +392,96 @@ Rules:
   return parseInsightsPayload(rawText)
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  return null
+}
+
+function formatSignedPct(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  const sign = rounded > 0 ? '+' : ''
+  return `${sign}${rounded}%`
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+type ActiveReportRow = {
+  id: string
+  area: string | null
+  report_period: string | null
+  extracted_stats: Record<string, unknown> | null
+  is_active: boolean | null
+}
+
+function formatCombinedReportsContext(reports: ActiveReportRow[]): {
+  context: string
+  areas: string[]
+} {
+  const areas: string[] = []
+  const blocks: string[] = []
+
+  for (const report of reports) {
+    const stats =
+      report.extracted_stats &&
+      typeof report.extracted_stats === 'object' &&
+      !Array.isArray(report.extracted_stats)
+        ? report.extracted_stats
+        : {}
+    const area =
+      (typeof report.area === 'string' && report.area.trim()) ||
+      (typeof stats.area === 'string' && stats.area.trim()) ||
+      'Unknown'
+    const period =
+      (typeof report.report_period === 'string' && report.report_period.trim()) ||
+      (typeof stats.report_period === 'string' && stats.report_period.trim()) ||
+      'Unknown'
+
+    areas.push(area)
+
+    const parts: string[] = []
+    const median = asFiniteNumber(stats.median_sales_price)
+    const medianChange = asFiniteNumber(stats.median_sales_price_change_pct)
+    const closedChange = asFiniteNumber(stats.closed_sales_change_pct)
+    const daysOnMarket = asFiniteNumber(stats.days_on_market)
+    const pctOfList = asFiniteNumber(stats.pct_of_list_price)
+
+    if (median !== null) {
+      const change =
+        medianChange !== null ? ` (${formatSignedPct(medianChange)})` : ''
+      parts.push(`median ${formatCurrency(median)}${change}`)
+    }
+    if (closedChange !== null) {
+      parts.push(`closed sales ${formatSignedPct(closedChange)}`)
+    }
+    if (daysOnMarket !== null) {
+      parts.push(`${Math.round(daysOnMarket)} days on market`)
+    }
+    if (pctOfList !== null) {
+      parts.push(
+        `sellers receiving ${Math.round(pctOfList * 10) / 10}% of list price`,
+      )
+    }
+
+    const summary =
+      parts.length > 0 ? parts.join(', ') : 'no key stats extracted'
+    blocks.push(
+      [
+        `${area} (${period}): ${summary}`,
+        `Full extracted stats for ${area}:`,
+        JSON.stringify(stats, null, 2),
+      ].join('\n'),
+    )
+  }
+
+  return { context: blocks.join('\n\n'), areas }
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return json(405, { code: 'method_not_allowed', message: 'Method not allowed' })
@@ -411,16 +502,16 @@ export const handler: Handler = async (event) => {
 
     const supabase = getServiceSupabase()
 
-    const { data: report, error: reportError } = await supabase
+    const { data: triggerReport, error: triggerError } = await supabase
       .from('market_reports')
-      .select('id, area, report_period, extracted_stats, is_active')
+      .select('id')
       .eq('id', reportId)
       .eq('user_email', userEmail)
       .maybeSingle()
 
-    if (reportError) {
+    if (triggerError) {
       safeLog('report_lookup_failed', {
-        message: reportError.message.slice(0, 200),
+        message: triggerError.message.slice(0, 200),
       })
       return json(500, {
         code: 'internal_error',
@@ -428,10 +519,35 @@ export const handler: Handler = async (event) => {
       })
     }
 
-    if (!report) {
+    if (!triggerReport) {
       return json(404, {
         code: 'not_found',
         message: 'Market report not found',
+      })
+    }
+
+    const { data: activeReportsRaw, error: activeReportsError } = await supabase
+      .from('market_reports')
+      .select('id, area, report_period, extracted_stats, is_active')
+      .eq('user_email', userEmail)
+      .eq('is_active', true)
+      .order('uploaded_at', { ascending: false })
+
+    if (activeReportsError) {
+      safeLog('active_reports_lookup_failed', {
+        message: activeReportsError.message.slice(0, 200),
+      })
+      return json(500, {
+        code: 'internal_error',
+        message: 'Failed to load market reports',
+      })
+    }
+
+    const activeReports = (activeReportsRaw ?? []) as ActiveReportRow[]
+    if (activeReports.length === 0) {
+      return json(404, {
+        code: 'not_found',
+        message: 'No active market reports found',
       })
     }
 
@@ -449,12 +565,8 @@ export const handler: Handler = async (event) => {
     }
 
     const leadCounts = summarizeLeads(leadRows)
-    const stats =
-      report.extracted_stats &&
-      typeof report.extracted_stats === 'object' &&
-      !Array.isArray(report.extracted_stats)
-        ? (report.extracted_stats as Record<string, unknown>)
-        : {}
+    const { context: reportsContext, areas: reportAreas } =
+      formatCombinedReportsContext(activeReports)
 
     const { data: profile, error: profileError } = await supabase
       .from('stz_profile')
@@ -475,10 +587,9 @@ export const handler: Handler = async (event) => {
     let insights: MarketInsight[]
     try {
       insights = await callAnthropicForInsights(
-        stats,
+        reportsContext,
+        reportAreas,
         leadCounts,
-        typeof report.area === 'string' ? report.area : '',
-        typeof report.report_period === 'string' ? report.report_period : '',
         voiceProfile,
       )
     } catch (err) {
@@ -501,6 +612,7 @@ export const handler: Handler = async (event) => {
 
     safeLog('insights_generated', {
       report_id: reportId,
+      report_count: activeReports.length,
       insight_count: insights.length,
       has_area_warning: insights.some((insight) => insight.is_warning),
       warm_with_email: leadCounts.warm_with_email,

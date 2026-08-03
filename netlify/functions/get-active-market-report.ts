@@ -44,8 +44,6 @@ export const handler: Handler = async (event) => {
       .eq('user_email', userEmail)
       .eq('is_active', true)
       .order('uploaded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
 
     if (error) {
       safeLog('lookup_failed', {
@@ -57,13 +55,14 @@ export const handler: Handler = async (event) => {
       })
     }
 
+    const reports = data ?? []
+
     safeLog('lookup_complete', {
       user_email: userEmail,
-      has_report: Boolean(data),
-      report_id: data?.id,
+      report_count: reports.length,
     })
 
-    return json(200, { report: data ?? null })
+    return json(200, { reports })
   } catch (err) {
     if (err instanceof OAuthAuthError) {
       return json(401, { code: 'unauthenticated' })

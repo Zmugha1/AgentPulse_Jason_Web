@@ -246,27 +246,28 @@ function buildReportStatLines(stats: MarketReportStats): string[] {
 }
 
 function MarketReportSection({
-  onActiveReportChange,
+  onActiveReportsChange,
 }: {
-  onActiveReportChange?: (report: ActiveMarketReport | null) => void
+  onActiveReportsChange?: (reports: ActiveMarketReport[]) => void
 }) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [report, setReport] = useState<ActiveMarketReport | null>(null)
+  const [reports, setReports] = useState<ActiveMarketReport[]>([])
   const [error, setError] = useState<string | null>(null)
   const [showUploader, setShowUploader] = useState(false)
+  const [replacingArea, setReplacingArea] = useState<string | null>(null)
   const [pdfInputKey, setPdfInputKey] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const publishReport = useCallback(
-    (next: ActiveMarketReport | null) => {
-      setReport(next)
-      onActiveReportChange?.(next)
+  const publishReports = useCallback(
+    (next: ActiveMarketReport[]) => {
+      setReports(next)
+      onActiveReportsChange?.(next)
     },
-    [onActiveReportChange],
+    [onActiveReportsChange],
   )
 
-  const loadActiveReport = useCallback(async () => {
+  const loadActiveReports = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -274,7 +275,7 @@ function MarketReportSection({
       await supabase.auth.getSession()
     const token = sessionData.session?.access_token
     if (sessionError || !token) {
-      publishReport(null)
+      publishReports([])
       setError('Please sign in again')
       setLoading(false)
       return
@@ -288,29 +289,30 @@ function MarketReportSection({
         },
       })
       const payload = (await res.json()) as {
-        report?: ActiveMarketReport | null
+        reports?: ActiveMarketReport[]
         message?: string
       }
 
       if (!res.ok) {
-        publishReport(null)
+        publishReports([])
         setError(payload.message ?? 'Could not load market report')
         return
       }
 
-      publishReport(payload.report ?? null)
-      setShowUploader(!(payload.report ?? null))
+      const next = Array.isArray(payload.reports) ? payload.reports : []
+      publishReports(next)
+      setShowUploader(next.length === 0)
     } catch {
-      publishReport(null)
+      publishReports([])
       setError('Could not load market report')
     } finally {
       setLoading(false)
     }
-  }, [publishReport])
+  }, [publishReports])
 
   useEffect(() => {
-    void loadActiveReport()
-  }, [loadActiveReport])
+    void loadActiveReports()
+  }, [loadActiveReports])
 
   async function handlePdfSelect(file: File | null) {
     if (!file) return
@@ -372,16 +374,23 @@ function MarketReportSection({
       }
 
       const stats = payload.stats
-      publishReport({
+      const area = stats.area?.trim() || ''
+      const nextReport: ActiveMarketReport = {
         id: payload.report_id,
-        area: stats.area?.trim() || '',
+        area,
         report_period: stats.report_period?.trim() || '',
         extracted_stats: stats,
         raw_text: payload.text?.trim() ?? '',
         uploaded_at: new Date().toISOString(),
         is_active: true,
-      })
+      }
+
+      const withoutSameArea = reports.filter(
+        (row) => row.area.trim().toLowerCase() !== area.toLowerCase(),
+      )
+      publishReports([nextReport, ...withoutSameArea])
       setShowUploader(false)
+      setReplacingArea(null)
       setPdfInputKey((k) => k + 1)
     } catch {
       setError('Could not extract text from PDF')
@@ -391,15 +400,15 @@ function MarketReportSection({
     }
   }
 
-  const areaLabel = report?.area?.trim() || report?.extracted_stats.area?.trim() || ''
-  const periodLabel =
-    report?.report_period?.trim() ||
-    report?.extracted_stats.report_period?.trim() ||
-    ''
-  const loadedLabel = [areaLabel, periodLabel].filter(Boolean).join(' ')
-  const statLines = report
-    ? buildReportStatLines(report.extracted_stats ?? {})
-    : []
+  const areaNames = reports
+    .map((row) => row.area.trim() || row.extracted_stats.area?.trim() || '')
+    .filter(Boolean)
+  const summaryLabel =
+    reports.length === 0
+      ? ''
+      : reports.length === 1
+        ? `1 report loaded${areaNames[0] ? `: ${areaNames[0]}` : ''}`
+        : `${reports.length} reports loaded: ${areaNames.join(', ')}`
 
   return (
     <section className="bg-white border border-mint rounded-lg p-4 md:p-6">
@@ -407,57 +416,96 @@ function MarketReportSection({
       <p className="font-body text-sm text-slate mt-1">
         Upload your monthly MLS report. AgentPulse extracts the data and uses it
         to power insights, lead actions, email drafts, and all content
-        generation.
+        generation. You can keep one active report per market area.
       </p>
 
       <div className="mt-4">
         {loading ? (
           <div className="flex items-center gap-2 text-slate">
             <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
-            <p className="font-body text-sm">Checking for an active report...</p>
+            <p className="font-body text-sm">Checking for active reports...</p>
           </div>
         ) : null}
 
-        {!loading && report && !showUploader ? (
+        {!loading && reports.length > 0 ? (
           <div className="space-y-3">
             <div className="flex items-start gap-2">
               <Check
                 className="w-5 h-5 text-teal shrink-0 mt-0.5"
                 aria-hidden
               />
-              <div>
-                <p className="font-body text-sm text-navy">
-                  Report loaded
-                  {loadedLabel ? `: ${loadedLabel}` : ''}
-                </p>
-                {statLines.length > 0 ? (
-                  <p className="font-body text-sm text-slate mt-2 leading-relaxed">
-                    {statLines.join(' · ')}
-                  </p>
-                ) : null}
-                <p className="font-body text-xs text-slate mt-2">
-                  Last updated: {formatUploadedAt(report.uploaded_at)}
-                </p>
+              <div className="min-w-0 flex-1">
+                <p className="font-body text-sm text-navy">{summaryLabel}</p>
                 <p className="font-body text-xs text-slate/80 mt-1">
                   This data is used across AgentPulse for insights and content
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowUploader(true)
-                    setError(null)
-                  }}
-                  className="font-body text-xs text-slate underline mt-3 hover:text-navy"
-                >
-                  Replace report
-                </button>
               </div>
             </div>
+
+            <div className="space-y-3">
+              {reports.map((report) => {
+                const areaLabel =
+                  report.area?.trim() ||
+                  report.extracted_stats.area?.trim() ||
+                  'Unknown area'
+                const periodLabel =
+                  report.report_period?.trim() ||
+                  report.extracted_stats.report_period?.trim() ||
+                  ''
+                const statLines = buildReportStatLines(
+                  report.extracted_stats ?? {},
+                )
+                return (
+                  <div
+                    key={report.id}
+                    className="border border-mint rounded-lg p-4 bg-cream/40"
+                  >
+                    <p className="font-heading text-sm font-bold text-navy">
+                      {areaLabel}
+                      {periodLabel ? ` · ${periodLabel}` : ''}
+                    </p>
+                    {statLines.length > 0 ? (
+                      <p className="font-body text-sm text-slate mt-2 leading-relaxed">
+                        {statLines.join(' · ')}
+                      </p>
+                    ) : null}
+                    <p className="font-body text-xs text-slate mt-2">
+                      Last updated: {formatUploadedAt(report.uploaded_at)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplacingArea(areaLabel)
+                        setShowUploader(true)
+                        setError(null)
+                      }}
+                      className="font-body text-xs text-slate underline mt-3 hover:text-navy"
+                    >
+                      Replace {areaLabel}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+
+            {!showUploader ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setReplacingArea(null)
+                  setShowUploader(true)
+                  setError(null)
+                }}
+                className="font-body text-xs text-teal underline hover:text-navy"
+              >
+                Add another market area
+              </button>
+            ) : null}
           </div>
         ) : null}
 
-        {!loading && (showUploader || !report) ? (
-          <div className="space-y-3">
+        {!loading && (showUploader || reports.length === 0) ? (
+          <div className="space-y-3 mt-3">
             {uploading ? (
               <div className="flex items-center gap-2 text-slate">
                 <Loader2 className="w-4 h-4 animate-spin text-teal" aria-hidden />
@@ -465,6 +513,12 @@ function MarketReportSection({
               </div>
             ) : (
               <>
+                {replacingArea ? (
+                  <p className="font-body text-xs text-slate">
+                    Upload a PDF to replace {replacingArea}. Uploading a
+                    different area will add or replace that area instead.
+                  </p>
+                ) : null}
                 <input
                   key={pdfInputKey}
                   ref={fileInputRef}
@@ -483,11 +537,12 @@ function MarketReportSection({
                 >
                   Upload MLS Report PDF
                 </button>
-                {report ? (
+                {reports.length > 0 ? (
                   <button
                     type="button"
                     onClick={() => {
                       setShowUploader(false)
+                      setReplacingArea(null)
                       setError(null)
                     }}
                     className="font-body text-xs text-slate underline block"
@@ -925,6 +980,7 @@ export default function MarketIntel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeReportId, setActiveReportId] = useState<string | null>(null)
+  const [activeReportsKey, setActiveReportsKey] = useState('none')
   const [totals, setTotals] = useState<Awaited<
     ReturnType<typeof getTotalCounts>
   > | null>(null)
@@ -944,9 +1000,14 @@ export default function MarketIntel() {
     ReturnType<typeof getPricedLeadStats>
   > | null>(null)
 
-  const handleActiveReportChange = useCallback(
-    (report: ActiveMarketReport | null) => {
-      setActiveReportId(report?.id ?? null)
+  const handleActiveReportsChange = useCallback(
+    (reports: ActiveMarketReport[]) => {
+      setActiveReportId(reports[0]?.id ?? null)
+      setActiveReportsKey(
+        reports.length > 0
+          ? [...reports.map((row) => row.id)].sort().join('|')
+          : 'none',
+      )
     },
     [],
   )
@@ -1032,8 +1093,8 @@ export default function MarketIntel() {
 
   return (
     <div className="space-y-6">
-      <MarketReportSection onActiveReportChange={handleActiveReportChange} />
-      <MarketPulsePanel reportId={activeReportId} />
+      <MarketReportSection onActiveReportsChange={handleActiveReportsChange} />
+      <MarketPulsePanel key={activeReportsKey} reportId={activeReportId} />
 
       {loading ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">
