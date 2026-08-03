@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import WeeklyActivitySummary from '../components/WeeklyActivitySummary'
+import MarketPulsePanel from '../components/MarketPulsePanel'
 import SourcePerformanceTable from '../components/SourcePerformanceTable'
 import { getStageLabel } from '../lib/pipelineStages'
 import { supabase } from '../lib/supabase'
@@ -244,7 +245,11 @@ function buildReportStatLines(stats: MarketReportStats): string[] {
   return lines.slice(0, 4)
 }
 
-function MarketReportSection() {
+function MarketReportSection({
+  onActiveReportChange,
+}: {
+  onActiveReportChange?: (report: ActiveMarketReport | null) => void
+}) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [report, setReport] = useState<ActiveMarketReport | null>(null)
@@ -252,6 +257,14 @@ function MarketReportSection() {
   const [showUploader, setShowUploader] = useState(false)
   const [pdfInputKey, setPdfInputKey] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const publishReport = useCallback(
+    (next: ActiveMarketReport | null) => {
+      setReport(next)
+      onActiveReportChange?.(next)
+    },
+    [onActiveReportChange],
+  )
 
   const loadActiveReport = useCallback(async () => {
     setLoading(true)
@@ -261,7 +274,7 @@ function MarketReportSection() {
       await supabase.auth.getSession()
     const token = sessionData.session?.access_token
     if (sessionError || !token) {
-      setReport(null)
+      publishReport(null)
       setError('Please sign in again')
       setLoading(false)
       return
@@ -280,20 +293,20 @@ function MarketReportSection() {
       }
 
       if (!res.ok) {
-        setReport(null)
+        publishReport(null)
         setError(payload.message ?? 'Could not load market report')
         return
       }
 
-      setReport(payload.report ?? null)
+      publishReport(payload.report ?? null)
       setShowUploader(!(payload.report ?? null))
     } catch {
-      setReport(null)
+      publishReport(null)
       setError('Could not load market report')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [publishReport])
 
   useEffect(() => {
     void loadActiveReport()
@@ -359,7 +372,7 @@ function MarketReportSection() {
       }
 
       const stats = payload.stats
-      setReport({
+      publishReport({
         id: payload.report_id,
         area: stats.area?.trim() || '',
         report_period: stats.report_period?.trim() || '',
@@ -911,6 +924,7 @@ function WebsiteActivitySection() {
 export default function MarketIntel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeReportId, setActiveReportId] = useState<string | null>(null)
   const [totals, setTotals] = useState<Awaited<
     ReturnType<typeof getTotalCounts>
   > | null>(null)
@@ -929,6 +943,13 @@ export default function MarketIntel() {
   const [pricedStats, setPricedStats] = useState<Awaited<
     ReturnType<typeof getPricedLeadStats>
   > | null>(null)
+
+  const handleActiveReportChange = useCallback(
+    (report: ActiveMarketReport | null) => {
+      setActiveReportId(report?.id ?? null)
+    },
+    [],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -1011,7 +1032,8 @@ export default function MarketIntel() {
 
   return (
     <div className="space-y-6">
-      <MarketReportSection />
+      <MarketReportSection onActiveReportChange={handleActiveReportChange} />
+      <MarketPulsePanel reportId={activeReportId} />
 
       {loading ? (
         <div className="bg-white border border-mint rounded-lg p-8 text-center">

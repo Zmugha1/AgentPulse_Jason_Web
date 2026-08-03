@@ -3,8 +3,14 @@ import AddLeadModal from '../components/AddLeadModal'
 import LeadFilters, { type LeadFiltersState } from '../components/LeadFilters'
 import LeadTable from '../components/LeadTable'
 import type { Lead } from '../lib/types'
+import { getEffectiveStatus } from '../lib/types'
 import { matchesSourceFilter } from '../lib/leadSources'
 import { isStale } from '../lib/leadStale'
+import {
+  OPEN_LEAD_INTELLIGENCE_EVENT,
+  readMarketPulseFilterFromStorage,
+  type MarketPulseLeadFilter,
+} from '../lib/marketPulseFilter'
 import { leadAgeDays } from '../services/scoringService'
 import {
   archiveLead,
@@ -102,6 +108,34 @@ function matchesFilters(lead: Lead, filters: LeadFiltersState): boolean {
   return true
 }
 
+function matchesPulseFilter(
+  lead: Lead,
+  filter: MarketPulseLeadFilter,
+): boolean {
+  if (filter.status && filter.status.length > 0) {
+    const status = getEffectiveStatus(lead)
+    if (status === 'dead' || !filter.status.includes(status)) {
+      return false
+    }
+  }
+  if (filter.has_home_to_sell === true && lead.has_home_to_sell !== true) {
+    return false
+  }
+  if (
+    filter.pipeline_stage &&
+    (lead.pipeline_stage ?? '') !== filter.pipeline_stage
+  ) {
+    return false
+  }
+  if (filter.never_contacted === true && lead.last_contact_at) {
+    return false
+  }
+  if (filter.stale === true && !isStale(lead)) {
+    return false
+  }
+  return true
+}
+
 export default function LeadIntelligence() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [totalInDb, setTotalInDb] = useState(0)
@@ -112,8 +146,30 @@ export default function LeadIntelligence() {
   const [filters, setFilters] = useState<LeadFiltersState>(defaultFilters)
   const [sortBy, setSortBy] = useState<LeadSortBy>('score_desc')
   const [hideStale, setHideStale] = useState(false)
+  const [pulseFilter, setPulseFilter] = useState<MarketPulseLeadFilter | null>(
+    null,
+  )
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+
+  useEffect(() => {
+    function applyPulseFilterFromStorage() {
+      const next = readMarketPulseFilterFromStorage()
+      if (next) setPulseFilter(next)
+    }
+
+    applyPulseFilterFromStorage()
+    window.addEventListener(
+      OPEN_LEAD_INTELLIGENCE_EVENT,
+      applyPulseFilterFromStorage,
+    )
+    return () => {
+      window.removeEventListener(
+        OPEN_LEAD_INTELLIGENCE_EVENT,
+        applyPulseFilterFromStorage,
+      )
+    }
+  }, [])
 
   const refreshCounts = useCallback(async () => {
     const [all, active] = await Promise.all([
@@ -176,11 +232,14 @@ export default function LeadIntelligence() {
 
   const filtered = useMemo(() => {
     let matches = leads.filter((lead) => matchesFilters(lead, filters))
+    if (pulseFilter) {
+      matches = matches.filter((lead) => matchesPulseFilter(lead, pulseFilter))
+    }
     if (hideStale) {
       matches = matches.filter((lead) => !isStale(lead))
     }
     return sortLeads(matches, sortBy)
-  }, [leads, filters, sortBy, hideStale])
+  }, [leads, filters, sortBy, hideStale, pulseFilter])
 
   const activePoolTotal = totalInDb - archivedCount
 
@@ -274,6 +333,21 @@ export default function LeadIntelligence() {
           + Add Lead
         </button>
       </div>
+
+      {pulseFilter ? (
+        <div className="bg-white border border-teal/40 rounded-lg px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-body text-sm text-navy">
+            Showing leads from Market Pulse insight.
+          </p>
+          <button
+            type="button"
+            onClick={() => setPulseFilter(null)}
+            className="font-body text-sm text-teal underline hover:text-navy"
+          >
+            Clear Market Pulse filter
+          </button>
+        </div>
+      ) : null}
 
       <AddLeadModal
         open={addModalOpen}

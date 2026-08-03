@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import Sidebar from './components/Sidebar'
 import type { AppTab } from './lib/navigation'
+import { OPEN_LEAD_INTELLIGENCE_EVENT } from './lib/marketPulseFilter'
 import { supabase } from './lib/supabase'
 import ContentStudio from './pages/ContentStudio'
 import Integrations from './pages/Integrations'
@@ -32,6 +33,23 @@ function App() {
       setActiveTab('integrations')
     } else if (path === '/content-studio') {
       setActiveTab('content-studio')
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleOpenLeadIntelligence() {
+      setActiveTab('intelligence')
+      setSidebarOpen(false)
+    }
+    window.addEventListener(
+      OPEN_LEAD_INTELLIGENCE_EVENT,
+      handleOpenLeadIntelligence,
+    )
+    return () => {
+      window.removeEventListener(
+        OPEN_LEAD_INTELLIGENCE_EVENT,
+        handleOpenLeadIntelligence,
+      )
     }
   }, [])
 

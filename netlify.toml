@@ -133,6 +133,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generate-market-insights"
+  to = "/.netlify/functions/generate-market-insights"
+  status = 200
+
+[[redirects]]
   from = "/api/draft-call-script"
   to = "/.netlify/functions/draft-call-script"
   status = 200
