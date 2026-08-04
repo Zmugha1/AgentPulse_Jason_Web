@@ -720,3 +720,48 @@ Blockers and open items:
 
 **Next session should start with:** Content Studio Part C (Social Posts generator), or Fix 2 logo support if Jason prioritizes signature branding. Verify newsletter generator with Jason on live before building Part C.
 
+---
+
+## Session 2026-08-02 / 2026-08-03 — Market Intelligence Insight Layer
+
+Market Intelligence layer complete. MLS PDF upload on Market Intel is the single source of truth for insights, drafts, and content. Demo ready for Bridget.
+
+**Commits this session (selected):**
+
+- `1ef7a28` — market_reports table + PDF extract with structured stats
+- `dfe6d59` — Market Intel PDF upload UI
+- `9dbed78` — Market Pulse insights + pipeline actions from MLS data
+- `589ceca` — email and call drafts include active report numbers
+- `7941880` — market area mismatch warning in Market Pulse
+- `dc7efbb` — multiple active reports, one per area (Lake Country North/South)
+- `3021150` — remove report + use_in_prompts toggle per report
+- `a7931d5` — Content Studio generators read active reports (real numbers only)
+- `0f43c9a` — Market Intel UX: descriptions, scoring explainer, info tips
+- `0a8c981` — quarterly / period filter on source performance conversion rates
+- `80c5b39` — podcast generator uses stored reports (no manual paste when reports exist)
+
+**ADRs / product rules:**
+
+- MLS numbers in UI and prompts come only from uploaded reports. Never invent market stats.
+- Multiple active reports allowed, unique per area. Prompts use `is_active AND use_in_prompts`.
+- Source performance conversion defaults to This Quarter (all-time Zillow pool made 1.4% meaningless).
+- Content generators prefer stored report context; manual market paste is fallback when none exist.
+
+**Production state at session end:**
+
+- Market Intel: PDF upload, multi-area active reports, Market Pulse on/off, source performance Period filter
+- Content Studio: newsletter / social / blog / podcast / etc. pull real MLS stats when reports are prompt-enabled
+- Podcast tab shows teal note with report areas instead of paste textarea when reports exist
+- Live: https://agentpulseweb.netlify.app — confirm Netlify Published hash matches `80c5b39` (or later session-capture commit)
+
+**Open items:**
+
+- Closing context capture (We Closed modal + `closings` table + `save-closing`) implemented locally, not yet committed
+- Phase 3 decision intelligence UI on `closings` not started
+- LeadStageEditor path to closed still bypasses closing modal
+- Backfill closings for existing 12 closed Zillow leads not started
+- SMS cross-platform fix still pending
+- Realtor.com historical CSV import still pending
+
+**Next session should start with:** Commit and ship closing-context capture if Bridget demo does not need it first. Otherwise verify live Market Intel + Content Studio with Jason/Bridget after hard refresh, then Phase 3 closings analytics or remaining Content Studio polish.
+

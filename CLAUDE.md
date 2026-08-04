@@ -104,3 +104,11 @@ Repo: [Zmugha1/AgentPulse_Jason_Web](https://github.com/Zmugha1/AgentPulse_Jason
 - Outbound email draft prompts must not include the lead's phone number. Lead phone is visible on the lead row; contact info in drafts comes from appended signature.
 - User-facing "dead" status displays as "Archived" in UI. Database value stays `dead` unless a migration is explicitly scoped.
 - Content Studio: one content type per commit. Each generator follows `draft-email.ts` auth + STZ profile + Anthropic pattern. Newsletter (`generate-newsletter.ts`) is the reference for Parts C through E.
+
+## Rules added 2026-08-03
+
+- Never invent MLS or market statistics. Every number shown to Jason or put in AI prompts must come from an uploaded `market_reports` row or his live lead pipeline.
+- Multiple active market reports are allowed, one per area. Deactivate only the previous report for the same area on upload.
+- Content and draft prompts load reports with `is_active = true` AND `use_in_prompts = true` via `fetchActiveMarketReports` / `formatContentMarketDataForPrompt`.
+- Source performance conversion rate must use a time filter (default `this_quarter`). All-time rates against large legacy pools (e.g. Zillow) are not sellable.
+- When active prompt-enabled market reports exist, Content Studio generators must not ask Jason to paste market stats manually.
