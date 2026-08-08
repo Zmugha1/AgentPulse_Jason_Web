@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { Lead } from '../lib/types'
+import { saveClosing } from '../services/closingsService'
 import { logInteraction } from '../services/interactionsService'
 import { updateLeadStage } from '../services/leadsService'
 import SmsModal from './SmsModal'
 import EmailModal from './EmailModal'
 import CallScriptModal from './CallScriptModal'
 import LeadEnrichmentModal from './LeadEnrichmentModal'
-import DoneMenu from './DoneMenu'
+import DoneMenu, { type ClosedConfirmResult } from './DoneMenu'
 
 const CONTACT_OUTCOMES = new Set(['called', 'voicemail', 'emailed', 'texted'])
 
@@ -120,9 +121,14 @@ export default function LeadActionButtons({
     )
   }
 
-  async function handleClosed() {
+  async function handleClosedConfirm(result: ClosedConfirmResult) {
     await runLoggedAction({ pipeline_stage: 'closed' }, async () => {
-      await updateLeadStage(lead.id, 'closed')
+      await saveClosing({
+        leadId: lead.id,
+        skip: result.skip,
+        closingPrice: result.closingPrice,
+        notes: result.notes,
+      })
     })
   }
 
@@ -173,8 +179,9 @@ export default function LeadActionButtons({
         {doneOpen ? (
           <DoneMenu
             lead={lead}
+            busy={busy}
             onNotInterested={() => void handleNotInterested()}
-            onClosed={() => void handleClosed()}
+            onClosedConfirm={(result) => void handleClosedConfirm(result)}
             onArchive={() => void handleArchive()}
             onClose={() => setDoneOpen(false)}
           />

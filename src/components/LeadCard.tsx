@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { getEffectiveStatus, type Lead, type LeadStatus } from '../lib/types'
 import { leadAgeDays } from '../services/scoringService'
 import { getStageLabel } from '../lib/pipelineStages'
+import { saveClosing } from '../services/closingsService'
 import { logInteraction } from '../services/interactionsService'
 import { archiveLead, updateLeadStage } from '../services/leadsService'
 import SmsModal from './SmsModal'
 import EmailModal from './EmailModal'
 import CallScriptModal from './CallScriptModal'
 import LeadEnrichmentModal from './LeadEnrichmentModal'
-import DoneMenu from './DoneMenu'
+import DoneMenu, { type ClosedConfirmResult } from './DoneMenu'
 import SourceBadge from './SourceBadge'
 
 function displayName(lead: Lead): string {
@@ -142,9 +143,14 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
     })
   }
 
-  async function handleClosed() {
+  async function handleClosedConfirm(result: ClosedConfirmResult) {
     await runLoggedAction(async () => {
-      await updateLeadStage(lead.id, 'closed')
+      await saveClosing({
+        leadId: lead.id,
+        skip: result.skip,
+        closingPrice: result.closingPrice,
+        notes: result.notes,
+      })
     })
   }
 
@@ -260,8 +266,9 @@ export default function LeadCard({ lead, onActionComplete }: LeadCardProps) {
             {doneOpen ? (
               <DoneMenu
                 lead={lead}
+                busy={busy}
                 onNotInterested={() => void handleNotInterested()}
-                onClosed={() => void handleClosed()}
+                onClosedConfirm={(result) => void handleClosedConfirm(result)}
                 onArchive={() => void handleArchive()}
                 onClose={() => setDoneOpen(false)}
               />

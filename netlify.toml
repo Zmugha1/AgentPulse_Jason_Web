@@ -163,6 +163,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/save-closing"
+  to = "/.netlify/functions/save-closing"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
